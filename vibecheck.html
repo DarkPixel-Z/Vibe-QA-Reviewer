@@ -766,6 +766,20 @@ function getScoreColor(score) {
   return "var(--fail)";
 }
 
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// Escape AI-returned rich text, then re-enable a small allowlist (<strong>, <em>, <br>)
+// so the summary can still bold key phrases without opening an XSS hole.
+function safeRichText(s) {
+  return escapeHtml(s)
+    .replace(/&lt;(\/?)(strong|em)&gt;/gi, "<$1$2>")
+    .replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+}
+
 function getStatusClass(status) {
   const s = (status || "").toLowerCase();
   if (s === "pass" || s === "passed") return "pass";
@@ -793,7 +807,7 @@ function animateScore(target) {
 
 function buildCodeFixHTML(codeFix) {
   if (!codeFix) return "";
-  const escaped = codeFix.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const escaped = escapeHtml(codeFix);
   const uid = "cf_" + Math.random().toString(36).slice(2,8);
   return "<div class=\"code-fix-box\">" +
     "<div class=\"code-fix-header\">" +
@@ -827,7 +841,7 @@ function renderReport(data, url, savedDateStr, isShared) {
   document.getElementById("stat-warn").textContent = tests.filter(t => getStatusClass(t.status) === "warn").length;
   document.getElementById("stat-fail").textContent = tests.filter(t => getStatusClass(t.status) === "fail").length;
   animateScore(data.score);
-  document.getElementById("insight-box").innerHTML = data.summary;
+  document.getElementById("insight-box").innerHTML = safeRichText(data.summary);
 
   const grid = document.getElementById("tests-grid");
   grid.innerHTML = "";
@@ -840,7 +854,7 @@ function renderReport(data, url, savedDateStr, isShared) {
 
     const issues = (cat.issues || []).map(issue => {
       const ic = getStatusClass(issue.severity || cat.status);
-      return "<li><span class=\"issue-dot " + ic + "\"></span><span>" + issue.text + "</span></li>";
+      return "<li><span class=\"issue-dot " + ic + "\"></span><span>" + escapeHtml(issue.text) + "</span></li>";
     }).join("");
 
     const codeFixHtml = buildCodeFixHTML(cat.codeFix);
@@ -849,13 +863,13 @@ function renderReport(data, url, savedDateStr, isShared) {
     card.innerHTML =
       "<div class=\"test-card-header\" onclick=\"toggleCard(this.parentElement)\">" +
         "<div class=\"status-icon " + cls + "\">" + meta.icon + "</div>" +
-        "<div class=\"test-name\">" + meta.name + "</div>" +
-        "<span class=\"test-status-pill " + cls + "\">" + cat.status + "</span>" +
+        "<div class=\"test-name\">" + escapeHtml(meta.name) + "</div>" +
+        "<span class=\"test-status-pill " + cls + "\">" + escapeHtml(cat.status) + "</span>" +
         "<span class=\"chevron-btn\">&#9660;</span>" +
       "</div>" +
       "<div class=\"test-card-body\">" +
         "<ul class=\"issue-list\">" + issues + "</ul>" +
-        (cat.recommendation ? "<div class=\"rec-box\"><strong>&rarr; Fix:</strong> " + cat.recommendation + "</div>" : "") +
+        (cat.recommendation ? "<div class=\"rec-box\"><strong>&rarr; Fix:</strong> " + escapeHtml(cat.recommendation) + "</div>" : "") +
         codeFixHtml +
       "</div>";
 
@@ -942,7 +956,7 @@ Requirements:
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 6000,
         messages: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search_20250305", name: "web_search" }]
@@ -989,7 +1003,7 @@ document.getElementById("url").addEventListener("keydown", e => { if (e.key === 
 
 // ══════════════════════════════════════════════════════════════════════════════
 // REAL URL CRAWLING — no backend needed
-// Uses allorigins.win CORS proxy + deep HTML parsing
+// Uses multiple CORS proxies in parallel + Wayback Machine fallback + deep HTML parsing
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function fetchPageData(url) {
@@ -1012,7 +1026,6 @@ async function fetchPageData(url) {
     { name: "allorigins",  url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,     parse: async r => { const d = await r.json(); return d.contents; } },
     { name: "codetabs",    url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, parse: async r => r.text() },
     { name: "corsproxy",   url: `https://corsproxy.io/?${encodeURIComponent(url)}`,                  parse: async r => r.text() },
-    { name: "htmlpreview", url: `https://htmlpreview.github.io/?${encodeURIComponent(url)}`,         parse: async r => r.text() },
   ];
 
   let rawHtml = "";
