@@ -24,11 +24,13 @@ Paste a live app URL and get a full QA report across **8 categories**:
 - Data persistence & state
 
 **Real URL crawling** — VibeCheck actually fetches your live page using a 5-layer proxy fallback system:
-1. 4 CORS proxies in parallel (allorigins, codetabs, corsproxy, htmlpreview)
+1. 3 CORS proxies in parallel (allorigins, codetabs, corsproxy)
 2. Wayback Machine archive fallback
 3. sitemap.xml crawl for route structure
 4. robots.txt parsing
 5. Manual HTML paste for auth-walled apps
+
+> **Privacy note:** the target URL and its HTML are routed through third-party CORS proxies (allorigins.win, api.codetabs.com, corsproxy.io) and archive.org. Your Anthropic API key never touches them — only the page you're auditing does. Don't audit authenticated URLs that leak session tokens in the URL.
 
 ### 📄 Code Review Mode
 Paste any code (30+ languages supported) and get:
@@ -67,7 +69,7 @@ Paste any code (30+ languages supported) and get:
 ### Option 1 — Just open the file
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/Vibe-QA-Reviewer.git
+git clone https://github.com/DarkPixel-Z/Vibe-QA-Reviewer.git
 
 # Open in browser
 open vibecheck.html
@@ -76,7 +78,7 @@ open vibecheck.html
 ### Option 2 — Host on GitHub Pages
 1. Go to repo **Settings → Pages**
 2. Set source to `main` branch, `/ (root)`
-3. Your app is live at `https://YOUR_USERNAME.github.io/Vibe-QA-Reviewer/vibecheck.html`
+3. Your app is live at `https://DarkPixel-Z.github.io/Vibe-QA-Reviewer/vibecheck.html`
 
 ### Option 3 — Host on your Wix site
 Upload `vibecheck.html` via Wix Media Manager and link to it, or embed via an HTML embed block.

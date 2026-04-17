@@ -342,6 +342,11 @@
     </div>
   </nav>
 
+  <div class="wrap mobile-mode-switch">
+    <button class="mobile-mode-btn active" id="mtab-qa" onclick="switchMode('qa')">&#9889; App QA</button>
+    <button class="mobile-mode-btn" id="mtab-code" onclick="switchMode('code')">&#128196; Code Review</button>
+  </div>
+
   <div id="input-screen">
     <div class="hero">
       <div class="hero-eyebrow">AI-powered QA &middot; free beta</div>
@@ -766,6 +771,20 @@ function getScoreColor(score) {
   return "var(--fail)";
 }
 
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// Escape AI-returned rich text, then re-enable a small allowlist (<strong>, <em>, <br>)
+// so the summary can still bold key phrases without opening an XSS hole.
+function safeRichText(s) {
+  return escapeHtml(s)
+    .replace(/&lt;(\/?)(strong|em)&gt;/gi, "<$1$2>")
+    .replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+}
+
 function getStatusClass(status) {
   const s = (status || "").toLowerCase();
   if (s === "pass" || s === "passed") return "pass";
@@ -793,7 +812,7 @@ function animateScore(target) {
 
 function buildCodeFixHTML(codeFix) {
   if (!codeFix) return "";
-  const escaped = codeFix.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const escaped = escapeHtml(codeFix);
   const uid = "cf_" + Math.random().toString(36).slice(2,8);
   return "<div class=\"code-fix-box\">" +
     "<div class=\"code-fix-header\">" +
@@ -827,7 +846,7 @@ function renderReport(data, url, savedDateStr, isShared) {
   document.getElementById("stat-warn").textContent = tests.filter(t => getStatusClass(t.status) === "warn").length;
   document.getElementById("stat-fail").textContent = tests.filter(t => getStatusClass(t.status) === "fail").length;
   animateScore(data.score);
-  document.getElementById("insight-box").innerHTML = data.summary;
+  document.getElementById("insight-box").innerHTML = safeRichText(data.summary);
 
   const grid = document.getElementById("tests-grid");
   grid.innerHTML = "";
@@ -840,7 +859,7 @@ function renderReport(data, url, savedDateStr, isShared) {
 
     const issues = (cat.issues || []).map(issue => {
       const ic = getStatusClass(issue.severity || cat.status);
-      return "<li><span class=\"issue-dot " + ic + "\"></span><span>" + issue.text + "</span></li>";
+      return "<li><span class=\"issue-dot " + ic + "\"></span><span>" + escapeHtml(issue.text) + "</span></li>";
     }).join("");
 
     const codeFixHtml = buildCodeFixHTML(cat.codeFix);
@@ -849,13 +868,13 @@ function renderReport(data, url, savedDateStr, isShared) {
     card.innerHTML =
       "<div class=\"test-card-header\" onclick=\"toggleCard(this.parentElement)\">" +
         "<div class=\"status-icon " + cls + "\">" + meta.icon + "</div>" +
-        "<div class=\"test-name\">" + meta.name + "</div>" +
-        "<span class=\"test-status-pill " + cls + "\">" + cat.status + "</span>" +
+        "<div class=\"test-name\">" + escapeHtml(meta.name) + "</div>" +
+        "<span class=\"test-status-pill " + cls + "\">" + escapeHtml(cat.status) + "</span>" +
         "<span class=\"chevron-btn\">&#9660;</span>" +
       "</div>" +
       "<div class=\"test-card-body\">" +
         "<ul class=\"issue-list\">" + issues + "</ul>" +
-        (cat.recommendation ? "<div class=\"rec-box\"><strong>&rarr; Fix:</strong> " + cat.recommendation + "</div>" : "") +
+        (cat.recommendation ? "<div class=\"rec-box\"><strong>&rarr; Fix:</strong> " + escapeHtml(cat.recommendation) + "</div>" : "") +
         codeFixHtml +
       "</div>";
 
@@ -891,8 +910,13 @@ async function runCheck() {
   if (!desc || desc.length < 20) { errEl.style.display="block"; errEl.textContent="⚠ Give us a bit more detail about what your app does (20+ chars)."; return; }
 
   errEl.style.display = "none";
+
+  const apiKey = requireApiKeyFor(runCheck);
+  if (!apiKey) return;
+
   document.getElementById("check-btn").disabled = true;
   showScreen("loading");
+  document.getElementById("terminal-log").innerHTML = "";
   TERMINAL_STEPS.forEach(s => addTerminalLog(s.text, "t-muted", s.delay));
 
   const prompt = `You are a senior QA engineer reviewing a vibe-coded web app (built with AI tools like ${builder}).
@@ -931,8 +955,6 @@ Requirements:
 
   let reportData;
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) { showScreen("input-screen"); document.getElementById("check-btn").disabled = false; return; }
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -942,7 +964,7 @@ Requirements:
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 6000,
         messages: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search_20250305", name: "web_search" }]
@@ -989,7 +1011,7 @@ document.getElementById("url").addEventListener("keydown", e => { if (e.key === 
 
 // ══════════════════════════════════════════════════════════════════════════════
 // REAL URL CRAWLING — no backend needed
-// Uses allorigins.win CORS proxy + deep HTML parsing
+// Uses multiple CORS proxies in parallel + Wayback Machine fallback + deep HTML parsing
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function fetchPageData(url) {
@@ -1012,7 +1034,6 @@ async function fetchPageData(url) {
     { name: "allorigins",  url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,     parse: async r => { const d = await r.json(); return d.contents; } },
     { name: "codetabs",    url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, parse: async r => r.text() },
     { name: "corsproxy",   url: `https://corsproxy.io/?${encodeURIComponent(url)}`,                  parse: async r => r.text() },
-    { name: "htmlpreview", url: `https://htmlpreview.github.io/?${encodeURIComponent(url)}`,         parse: async r => r.text() },
   ];
 
   let rawHtml = "";
@@ -1248,10 +1269,10 @@ function buildCrawlSummary(pageData) {
       `Service Worker/PWA: ${pageData.hasServiceWorker ? "Yes" : "No"}`,
       ``,
       `HEADINGS:`,
-      `  H1s (${pageData.h1s.length}): ${pageData.h1s.map(h => \`"\${h}"\`).join(", ") || "(none)"}`,
-      `  H2s (${pageData.h2s.length}): ${pageData.h2s.slice(0,5).map(h => \`"\${h}"\`).join(", ") || "(none)"}`,
+      `  H1s (${pageData.h1s.length}): ${pageData.h1s.map(h => `"${h}"`).join(", ") || "(none)"}`,
+      `  H2s (${pageData.h2s.length}): ${pageData.h2s.slice(0,5).map(h => `"${h}"`).join(", ") || "(none)"}`,
       ``,
-      `NAVIGATION (${pageData.navLinks.length} links): ${pageData.navLinks.map(l => \`"\${l.text}"\`).join(", ") || "(none found)"}`,
+      `NAVIGATION (${pageData.navLinks.length} links): ${pageData.navLinks.map(l => `"${l.text}"`).join(", ") || "(none found)"}`,
       ``,
       `FORMS FOUND: ${pageData.forms.length}`,
       ...pageData.forms.map((f,i) => [
@@ -1259,7 +1280,7 @@ function buildCrawlSummary(pageData) {
         ...f.inputs.map(inp => `    field: type=${inp.type} name="${inp.name}" required=${inp.required} hasLabel=${inp.hasLabel} autocomplete="${inp.autocomplete}"`)
       ].join("\n")),
       ``,
-      `BUTTONS (${pageData.buttons.length}): ${pageData.buttons.slice(0,12).map(b => b.text).filter(Boolean).map(t => \`"\${t}"\`).join(", ")}`,
+      `BUTTONS (${pageData.buttons.length}): ${pageData.buttons.slice(0,12).map(b => b.text).filter(Boolean).map(t => `"${t}"`).join(", ")}`,
       ``,
       `ACCESSIBILITY ISSUES (auto-detected):`,
       ...(pageData.ariaIssues.length ? pageData.ariaIssues.map(i => `  ⚠ ${i}`) : ["  None auto-detected"]),
@@ -1382,4 +1403,656 @@ function buildPageDataFromHtml(rawHtml, url) {
   return result;
 }
 
->
+// ═════════════════════════════════════════════════════════════════════════════
+// API KEY FLOW
+// ═════════════════════════════════════════════════════════════════════════════
+let _pendingAfterApiKey = null;
+
+function getApiKey() {
+  return sessionStorage.getItem("vc_api_key");
+}
+
+function requireApiKeyFor(callback) {
+  const k = getApiKey();
+  if (k) return k;
+  _pendingAfterApiKey = (typeof callback === "function") ? callback : null;
+  const modal = document.getElementById("api-modal");
+  if (modal) modal.classList.add("show");
+  const err = document.getElementById("api-modal-error");
+  if (err) err.style.display = "none";
+  const inp = document.getElementById("api-key-input");
+  if (inp) { inp.value = ""; setTimeout(() => inp.focus(), 60); }
+  return null;
+}
+
+function submitApiKey() {
+  const inp = document.getElementById("api-key-input");
+  const err = document.getElementById("api-modal-error");
+  const val = ((inp && inp.value) || "").trim();
+  if (!val.startsWith("sk-ant-")) {
+    if (err) err.style.display = "block";
+    return;
+  }
+  sessionStorage.setItem("vc_api_key", val);
+  document.getElementById("api-modal").classList.remove("show");
+  if (err) err.style.display = "none";
+  const cb = _pendingAfterApiKey;
+  _pendingAfterApiKey = null;
+  if (typeof cb === "function") cb();
+}
+
+function toggleApiKeyVis() {
+  const inp = document.getElementById("api-key-input");
+  const btn = document.getElementById("eye-btn");
+  if (!inp) return;
+  if (inp.type === "password") {
+    inp.type = "text";
+    if (btn) btn.textContent = "\uD83D\uDE48";
+  } else {
+    inp.type = "password";
+    if (btn) btn.textContent = "\uD83D\uDC41";
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SCREEN / MODE MANAGEMENT (extends the original showScreen to cover code screens)
+// ═════════════════════════════════════════════════════════════════════════════
+const ALL_SCREENS = ["input-screen","code-screen","loading","report","code-report"];
+showScreen = function(id) {
+  ALL_SCREENS.forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = (s === id ? "block" : "none");
+  });
+};
+
+function switchMode(mode) {
+  const isCode = mode === "code";
+  ["tab-qa","mtab-qa"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("active", !isCode);
+  });
+  ["tab-code","mtab-code"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("active", isCode);
+  });
+  showScreen(isCode ? "code-screen" : "input-screen");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HISTORY DRAWER
+// ═════════════════════════════════════════════════════════════════════════════
+const HISTORY_KEY = "vc_history";
+const HISTORY_MAX = 8;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch(e) { return []; }
+}
+
+function saveToHistory(entry) {
+  try {
+    const h = loadHistory();
+    h.unshift(entry);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, HISTORY_MAX)));
+  } catch(e) { /* quota / private mode — ignore */ }
+}
+
+function showHistory() {
+  const list = document.getElementById("history-list");
+  const items = loadHistory();
+  if (!list) return;
+  if (items.length === 0) {
+    list.innerHTML = "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:16px 0\">No reports yet. Run a check or code review to save one here.</div>";
+  } else {
+    list.innerHTML = items.map((e, i) =>
+      "<div onclick=\"runHistoryItem(" + i + ")\" style=\"padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px\">" +
+        "<div style=\"color:var(--text);font-weight:700;margin-bottom:4px\">" + escapeHtml(e.title || "Untitled") + "</div>" +
+        "<div style=\"color:var(--muted)\">" + escapeHtml(e.date || "") + " &middot; " + escapeHtml(e.kind || "") + "</div>" +
+      "</div>"
+    ).join("");
+  }
+  document.getElementById("history-drawer").classList.add("open");
+}
+
+function closeHistory() {
+  const d = document.getElementById("history-drawer");
+  if (d) d.classList.remove("open");
+}
+
+function runHistoryItem(i) {
+  const items = loadHistory();
+  const entry = items[i];
+  if (!entry) return;
+  closeHistory();
+  if (entry.kind === "qa") {
+    renderReport(entry.data, entry.url, entry.date, true);
+  } else if (entry.kind === "code") {
+    _crLastData = entry.data;
+    _crLastMeta = entry.meta || {};
+    renderCodeReport(entry.data, entry.meta || {}, entry.date);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// REPORT DOWNLOAD (shared helper, used by QA + Code Review)
+// ═════════════════════════════════════════════════════════════════════════════
+function sanitizeFilename(s) {
+  return String(s || "report").replace(/[^a-z0-9_\-]/gi, "_").slice(0, 60) || "report";
+}
+
+function downloadBlob(filename, mime, content) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function reportAsHtmlDocument(targetId, title) {
+  const node = document.getElementById(targetId);
+  if (!node) return "";
+  const clone = node.cloneNode(true);
+  // Strip interactive bits from the exported snapshot
+  clone.querySelectorAll("button, .code-copy-btn, .rerun-btn, .copy-fixed-btn, .download-btn, .reset-btn, .filter-bar, .shared-banner").forEach(el => el.remove());
+  const styles = Array.from(document.querySelectorAll("style")).map(s => s.outerHTML).join("\n");
+  return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(title) + "</title>" + styles + "</head><body style=\"background:#0C0C10;color:#EAEAEA;padding:32px;font-family:Inter,sans-serif\">" + clone.outerHTML + "</body></html>";
+}
+
+async function exportReportAs(targetId, baseName, format, title) {
+  if (format === "html") {
+    downloadBlob(sanitizeFilename(baseName) + ".html", "text/html", reportAsHtmlDocument(targetId, title));
+    return;
+  }
+  if (format === "word") {
+    downloadBlob(sanitizeFilename(baseName) + ".doc", "application/msword", reportAsHtmlDocument(targetId, title));
+    return;
+  }
+  if (format === "pdf") {
+    const node = document.getElementById(targetId);
+    if (!node || typeof html2canvas !== "function" || !window.jspdf) {
+      showToast("PDF export needs the bundled libs — try HTML instead.");
+      return;
+    }
+    try {
+      const canvas = await html2canvas(node, { backgroundColor: "#0C0C10", scale: 2, useCORS: true });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const imgProps = canvas.width / canvas.height;
+      const imgW = pageW - 40;
+      const imgH = imgW / imgProps;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 20, 20, imgW, imgH);
+      pdf.save(sanitizeFilename(baseName) + ".pdf");
+    } catch(e) {
+      console.error(e);
+      showToast("PDF export failed — try HTML.");
+    }
+  }
+}
+
+// App QA downloads — remember the last rendered report
+let _lastQaUrl = "";
+let _lastQaData = null;
+
+function downloadReport(format) {
+  if (!_lastQaData) { showToast("No report to download yet."); return; }
+  const base = "vibecheck_qa_" + sanitizeFilename(_lastQaUrl || "report");
+  exportReportAs("report", base, format, "VibeCheck QA Report");
+}
+
+// Wrap renderReport to remember state + save history
+const _origRenderReport = renderReport;
+renderReport = function(data, url, savedDateStr, isShared) {
+  _lastQaData = data;
+  _lastQaUrl = url;
+  _origRenderReport(data, url, savedDateStr, isShared);
+  if (!isShared) {
+    let title = url;
+    try { title = new URL(url).hostname || url; } catch(e) {}
+    saveToHistory({
+      kind: "qa", title, url, data,
+      date: document.getElementById("report-date").textContent
+    });
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CODE REVIEW — multi-file state
+// ═════════════════════════════════════════════════════════════════════════════
+let codeFiles = [{ name: "file_1.js", content: "" }];
+let currentFileIdx = 0;
+
+function extForLang(lang) {
+  const m = { javascript:"js", typescript:"ts", react:"jsx", html:"html", css:"css", python:"py", other:"txt" };
+  return m[lang] || "js";
+}
+
+function ensureCurrentFileCached() {
+  const ta = document.getElementById("code-input");
+  if (ta && codeFiles[currentFileIdx]) {
+    codeFiles[currentFileIdx].content = ta.value;
+  }
+}
+
+function loadFileIntoEditor(idx) {
+  const ta = document.getElementById("code-input");
+  if (!ta || !codeFiles[idx]) return;
+  currentFileIdx = idx;
+  ta.value = codeFiles[idx].content || "";
+  renderFileTabs();
+}
+
+function renderFileTabs() {
+  const bar = document.getElementById("file-tabs");
+  if (!bar) return;
+  const tabs = codeFiles.map((f, i) =>
+    "<div class=\"file-tab " + (i === currentFileIdx ? "active" : "") + "\" data-idx=\"" + i + "\" onclick=\"switchFile(" + i + ")\">" +
+      "<span>" + escapeHtml(f.name) + "</span>" +
+      (codeFiles.length > 1 ? "<span class=\"close-tab\" onclick=\"event.stopPropagation(); closeFile(" + i + ")\">&times;</span>" : "") +
+    "</div>"
+  ).join("");
+  bar.innerHTML = tabs + "<button class=\"add-file-btn\" onclick=\"addFile()\">+ Add file</button>";
+}
+
+function switchFile(idx) {
+  ensureCurrentFileCached();
+  loadFileIntoEditor(idx);
+}
+
+function addFile() {
+  ensureCurrentFileCached();
+  const langSel = document.getElementById("code-lang");
+  const ext = extForLang(langSel ? langSel.value : "javascript");
+  const n = codeFiles.length + 1;
+  codeFiles.push({ name: "file_" + n + "." + ext, content: "" });
+  loadFileIntoEditor(codeFiles.length - 1);
+}
+
+function closeFile(idx) {
+  if (codeFiles.length <= 1) return;
+  codeFiles.splice(idx, 1);
+  if (currentFileIdx >= codeFiles.length) currentFileIdx = codeFiles.length - 1;
+  loadFileIntoEditor(currentFileIdx);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CODE REVIEW — runner
+// ═════════════════════════════════════════════════════════════════════════════
+const CR_TERMINAL_STEPS = [
+  { text: "Loading code...", delay: 0 },
+  { text: "Tokenising & parsing...", delay: 500 },
+  { text: "Scanning for OWASP Top 10 violations...", delay: 1100 },
+  { text: "Checking CWE/SANS Top 25 patterns...", delay: 1700 },
+  { text: "Auditing WCAG 2.2 accessibility...", delay: 2300 },
+  { text: "Evaluating SOLID, DRY, KISS, 12-Factor...", delay: 2900 },
+  { text: "Generating UAT test scenarios...", delay: 3500 },
+  { text: "Running AI deep-review...", delay: 4100 },
+  { text: "Computing fix confidence scores...", delay: 5500 },
+  { text: "Compiling report...", delay: 6800 },
+];
+
+let _crLastData = null;
+let _crLastMeta = null;
+
+async function runCodeReview() {
+  ensureCurrentFileCached();
+  const langSel = document.getElementById("code-lang");
+  const lang = langSel ? langSel.value : "javascript";
+  const context = (document.getElementById("code-context").value || "").trim();
+  const errEl = document.getElementById("code-error-msg");
+  const hasCode = codeFiles.some(f => (f.content || "").trim().length > 0);
+  if (!hasCode) {
+    errEl.style.display = "block";
+    errEl.textContent = "\u26A0 Paste some code first.";
+    return;
+  }
+  if (!context || context.length < 10) {
+    errEl.style.display = "block";
+    errEl.textContent = "\u26A0 A quick one-liner about what the code does helps (10+ chars).";
+    return;
+  }
+  errEl.style.display = "none";
+
+  const apiKey = requireApiKeyFor(runCodeReview);
+  if (!apiKey) return;
+
+  document.getElementById("code-check-btn").disabled = true;
+  showScreen("loading");
+  document.getElementById("terminal-log").innerHTML = "";
+  CR_TERMINAL_STEPS.forEach(s => addTerminalLog(s.text, "t-muted", s.delay));
+
+  const filesBlock = codeFiles.map(f =>
+    "\n\n=== FILE: " + f.name + " ===\n" + (f.content || "")
+  ).join("");
+
+  const prompt = "You are a senior staff engineer performing a rigorous code review.\n\n" +
+    "Language: " + lang + "\n" +
+    "What this code does: " + context + "\n" +
+    "Number of files: " + codeFiles.length + "\n" +
+    filesBlock + "\n\n" +
+    "Review the code against:\n" +
+    "- OWASP Top 10 (2025)\n" +
+    "- CWE/SANS Top 25\n" +
+    "- WCAG 2.2 (if there is any UI)\n" +
+    "- SOLID, DRY, KISS, 12-Factor\n\n" +
+    "Also generate 3-8 UAT (User Acceptance Testing) scenarios covering the main flows and edge cases.\n\n" +
+    "Return ONLY valid JSON, no markdown, matching exactly:\n" +
+    "{\n" +
+    "  \"score\": <integer 0-100, start at 100 and subtract ~12 per fail, ~6 per warn, ~2 per info>,\n" +
+    "  \"summary\": \"<2-3 sentence HTML string. Use <strong> for key phrases.>\",\n" +
+    "  \"issues\": [\n" +
+    "    {\n" +
+    "      \"title\": \"<short, specific title>\",\n" +
+    "      \"severity\": \"<fail|warn|info>\",\n" +
+    "      \"category\": \"<security|accessibility|architecture|performance|correctness>\",\n" +
+    "      \"standard\": \"<e.g. 'OWASP A03:2021', 'CWE-79', 'WCAG 2.2 1.1.1', 'SOLID: SRP'>\",\n" +
+    "      \"file\": \"<file name from above, exactly>\",\n" +
+    "      \"line\": \"<line or range, e.g. '12' or '12-18'>\",\n" +
+    "      \"description\": \"<1-3 sentence explanation of the problem and impact>\",\n" +
+    "      \"fixConfidence\": <integer 0-100>,\n" +
+    "      \"badCode\": \"<original snippet, max 6 lines>\",\n" +
+    "      \"goodCode\": \"<fixed snippet, max 10 lines>\"\n" +
+    "    }\n" +
+    "  ],\n" +
+    "  \"uat\": [\n" +
+    "    {\n" +
+    "      \"title\": \"<scenario name>\",\n" +
+    "      \"priority\": \"<high|medium|low>\",\n" +
+    "      \"steps\": [\"1. ...\", \"2. ...\"],\n" +
+    "      \"expected\": \"<expected result>\",\n" +
+    "      \"automatable\": <true|false>,\n" +
+    "      \"automationHint\": \"<1 sentence — e.g. 'Playwright: page.getByRole(...)'>\"\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}\n\n" +
+    "Requirements:\n" +
+    "- Produce 4-12 issues. Cover a mix of severities.\n" +
+    "- Every issue MUST have real badCode + goodCode drawn from or applicable to the pasted code.\n" +
+    "- Be specific. Avoid generic advice.";
+
+  let reportData;
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if (!response.ok) {
+      if (response.status === 401) { sessionStorage.removeItem("vc_api_key"); throw new Error("Invalid API key — please reload and try again."); }
+      throw new Error("API error " + response.status);
+    }
+    const data = await response.json();
+    const raw = data.content.map(c => c.text || "").join("");
+    let clean = raw.replace(/```json|```/g,"").trim();
+    try {
+      reportData = JSON.parse(clean);
+    } catch(parseErr) {
+      const lastComma = clean.lastIndexOf('},');
+      if (lastComma > 0) {
+        clean = clean.slice(0, lastComma + 1) + ']}';
+        try { reportData = JSON.parse(clean); }
+        catch(e2) { throw new Error("Response was cut off — please try again. (JSON truncated)"); }
+      } else {
+        throw new Error("Response was cut off — please try again.");
+      }
+    }
+    await new Promise(r => setTimeout(r, 7000));
+    addTerminalLog("Review complete!", "t-pass", 0);
+    await new Promise(r => setTimeout(r, 500));
+  } catch(err) {
+    console.error(err);
+    showScreen("code-screen");
+    errEl.style.display = "block";
+    errEl.textContent = "\u26A0 Something went wrong. (" + err.message + ")";
+    document.getElementById("code-check-btn").disabled = false;
+    return;
+  }
+
+  _crLastData = reportData;
+  _crLastMeta = { lang, context, files: codeFiles.map(f => ({ name: f.name, content: f.content })) };
+  renderCodeReport(reportData, _crLastMeta, null);
+  document.getElementById("code-check-btn").disabled = false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CODE REVIEW — rendering
+// ═════════════════════════════════════════════════════════════════════════════
+function severityIcon(sev) {
+  const s = (sev || "").toLowerCase();
+  if (s === "fail" || s === "critical" || s === "high") return "&#128308;";
+  if (s === "warn" || s === "warning" || s === "medium") return "&#128992;";
+  return "&#128994;";
+}
+
+function severityToClass(sev) {
+  const s = (sev || "").toLowerCase();
+  if (s === "fail" || s === "critical" || s === "high") return "fail";
+  if (s === "warn" || s === "warning" || s === "medium") return "warn";
+  return "info";
+}
+
+function buildBadVsGood(bad, good) {
+  if (!bad && !good) return "";
+  return "<div class=\"code-fix-box\" style=\"margin-top:10px\">" +
+    (bad ? "<div class=\"code-fix-header\" style=\"color:var(--fail)\"><span>&ndash; Before</span>" +
+      "<button class=\"code-copy-btn\" onclick=\"copyCode(this, this.dataset.code)\" data-code=\"" + escapeHtml(bad) + "\">Copy</button>" +
+    "</div>" +
+    "<div class=\"code-fix-body\"><pre>" + escapeHtml(bad) + "</pre></div>" : "") +
+    (good ? "<div class=\"code-fix-header\" style=\"color:var(--pass)\"><span>+ After</span>" +
+      "<button class=\"code-copy-btn\" onclick=\"copyCode(this, this.dataset.code)\" data-code=\"" + escapeHtml(good) + "\">Copy</button>" +
+    "</div>" +
+    "<div class=\"code-fix-body\"><pre>" + escapeHtml(good) + "</pre></div>" : "") +
+  "</div>";
+}
+
+function animateCrScore(target) {
+  const numEl = document.getElementById("cr-score-num");
+  const arcEl = document.getElementById("cr-score-arc");
+  if (!numEl || !arcEl) return;
+  const circ = 2 * Math.PI * 35;
+  arcEl.style.stroke = getScoreColor(target);
+  let cur = 0;
+  const step = () => {
+    if (cur < target) {
+      cur = Math.min(cur + 2, target);
+      numEl.textContent = cur;
+      arcEl.style.strokeDasharray = (cur / 100 * circ) + " " + circ;
+      requestAnimationFrame(step);
+    } else {
+      numEl.textContent = target;
+      arcEl.style.strokeDasharray = (target / 100 * circ) + " " + circ;
+    }
+  };
+  requestAnimationFrame(step);
+}
+
+function renderCodeReport(data, meta, savedDateStr) {
+  const dateStr = savedDateStr || new Date().toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"});
+  document.getElementById("cr-date").textContent = dateStr;
+  document.getElementById("cr-lang-display").textContent =
+    (meta && meta.lang ? meta.lang : "") + (meta && meta.context ? " \u00B7 " + meta.context : "");
+
+  const issues = Array.isArray(data.issues) ? data.issues : [];
+  const uat = Array.isArray(data.uat) ? data.uat : [];
+
+  const nFail = issues.filter(i => severityToClass(i.severity) === "fail").length;
+  const nWarn = issues.filter(i => severityToClass(i.severity) === "warn").length;
+  const nInfo = issues.filter(i => severityToClass(i.severity) === "info").length;
+  document.getElementById("cr-stat-issues").textContent = nFail;
+  document.getElementById("cr-stat-warnings").textContent = nWarn;
+  document.getElementById("cr-stat-uat").textContent = uat.length;
+
+  animateCrScore(typeof data.score === "number" ? data.score : 0);
+  document.getElementById("cr-insight").innerHTML = safeRichText(data.summary || "");
+
+  // UAT scenarios
+  const uatGrid = document.getElementById("uat-grid");
+  uatGrid.innerHTML = uat.map(s => {
+    const pr = (s.priority || "medium").toLowerCase();
+    const priorityClass = pr === "high" ? "fail" : pr === "low" ? "info" : "warn";
+    const steps = Array.isArray(s.steps) ? s.steps.map(x => "<li>" + escapeHtml(x) + "</li>").join("") : "";
+    return "<div class=\"test-card\">" +
+      "<div class=\"test-card-header\" onclick=\"toggleCard(this.parentElement)\">" +
+        "<div class=\"status-icon " + priorityClass + "\">&#9654;</div>" +
+        "<div class=\"test-name\">" + escapeHtml(s.title || "UAT Scenario") + "</div>" +
+        "<span class=\"test-status-pill " + priorityClass + "\">" + escapeHtml(pr) + "</span>" +
+        "<span class=\"chevron-btn\">&#9660;</span>" +
+      "</div>" +
+      "<div class=\"test-card-body\">" +
+        (steps ? "<ol style=\"padding-left:20px;margin:8px 0\">" + steps + "</ol>" : "") +
+        (s.expected ? "<div class=\"rec-box\"><strong>Expected:</strong> " + escapeHtml(s.expected) + "</div>" : "") +
+        (s.automatable ? "<div class=\"rec-box\" style=\"margin-top:8px\"><strong>&#129302; Automatable:</strong> " + escapeHtml(s.automationHint || "Yes") + "</div>" : "") +
+      "</div>" +
+    "</div>";
+  }).join("");
+
+  // Issues
+  const issuesGrid = document.getElementById("cr-issues-grid");
+  issuesGrid.innerHTML = issues.map((iss, i) => {
+    const cls = severityToClass(iss.severity);
+    const confidence = typeof iss.fixConfidence === "number" ? iss.fixConfidence : null;
+    const searchText = ((iss.title || "") + " " + (iss.description || "") + " " + (iss.standard || "") + " " + (iss.file || "")).toLowerCase();
+    return "<div class=\"issue-card\" data-severity=\"" + cls + "\" data-text=\"" + escapeHtml(searchText) + "\">" +
+      "<div class=\"issue-card-header\" onclick=\"this.parentElement.classList.toggle('open')\">" +
+        "<div class=\"status-icon " + cls + "\">" + severityIcon(iss.severity) + "</div>" +
+        "<div class=\"test-name\">" + escapeHtml(iss.title || ("Issue " + (i+1))) + "</div>" +
+        (iss.standard ? "<span class=\"test-status-pill " + cls + "\" style=\"font-size:10px\">" + escapeHtml(iss.standard) + "</span>" : "") +
+        "<span class=\"chevron-btn\">&#9660;</span>" +
+      "</div>" +
+      "<div class=\"issue-card-body\">" +
+        (iss.file ? "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px\">" + escapeHtml(iss.file) + (iss.line ? ":" + escapeHtml(iss.line) : "") + "</div>" : "") +
+        (iss.description ? "<div style=\"margin-bottom:10px\">" + escapeHtml(iss.description) + "</div>" : "") +
+        (confidence !== null ? "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px\">Fix confidence: <strong style=\"color:var(--lime)\">" + confidence + "%</strong></div>" : "") +
+        buildBadVsGood(iss.badCode, iss.goodCode) +
+      "</div>" +
+    "</div>";
+  }).join("");
+
+  // Filter counts + reset
+  document.getElementById("fc-all").textContent = issues.length;
+  document.getElementById("fc-fail").textContent = nFail;
+  document.getElementById("fc-warn").textContent = nWarn;
+  document.getElementById("fc-info").textContent = nInfo;
+
+  _crCurrentFilter = "all";
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-all","active-fail","active-warn","active-info"));
+  const fbAll = document.getElementById("fb-all");
+  if (fbAll) fbAll.classList.add("active-all");
+  const search = document.getElementById("filter-search");
+  if (search) search.value = "";
+
+  // Save to history (don't re-save when replaying from history)
+  if (!savedDateStr) {
+    saveToHistory({
+      kind: "code",
+      title: (meta && meta.context) ? meta.context : "Code Review",
+      date: dateStr,
+      data, meta
+    });
+  }
+
+  showScreen("code-report");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CODE REVIEW — filter bar
+// ═════════════════════════════════════════════════════════════════════════════
+let _crCurrentFilter = "all";
+
+function filterIssues(level) {
+  if (typeof level === "string") {
+    _crCurrentFilter = level;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-all","active-fail","active-warn","active-info"));
+    const active = document.getElementById("fb-" + level);
+    if (active) active.classList.add("active-" + level);
+  }
+  const q = (document.getElementById("filter-search") || {value:""}).value.trim().toLowerCase();
+  document.querySelectorAll("#cr-issues-grid .issue-card").forEach(card => {
+    const sev = card.getAttribute("data-severity");
+    const text = card.getAttribute("data-text") || "";
+    const levelOk = _crCurrentFilter === "all" || sev === _crCurrentFilter;
+    const searchOk = !q || text.includes(q);
+    card.style.display = (levelOk && searchOk) ? "" : "none";
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CODE REVIEW — action buttons
+// ═════════════════════════════════════════════════════════════════════════════
+function resetCodeReview() {
+  document.getElementById("code-check-btn").disabled = false;
+  document.getElementById("code-error-msg").style.display = "none";
+  showScreen("code-screen");
+}
+
+function rerunAfterFixes() {
+  // User may have edited the textarea; runCodeReview reads fresh content.
+  showScreen("code-screen");
+  setTimeout(runCodeReview, 50);
+}
+
+function copyFixedFile() {
+  if (!_crLastData || !_crLastMeta) { showToast("No review yet."); return; }
+  const byFile = {};
+  (_crLastData.issues || []).forEach(iss => {
+    if (!iss.goodCode) return;
+    const f = iss.file || (_crLastMeta.files && _crLastMeta.files[0] && _crLastMeta.files[0].name) || "file";
+    (byFile[f] = byFile[f] || []).push({ title: iss.title, good: iss.goodCode });
+  });
+  const fileNames = Object.keys(byFile);
+  if (fileNames.length === 0) { showToast("No fix snippets to copy."); return; }
+  let out = "// Fixed snippets from VibeCheck review\n";
+  fileNames.forEach(f => {
+    out += "\n// ----- " + f + " -----\n";
+    byFile[f].forEach(e => {
+      out += "\n// Fix: " + (e.title || "") + "\n" + e.good + "\n";
+    });
+  });
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(out).then(
+      () => showToast("Fixed snippets copied!"),
+      () => showToast("Copy failed — try manually.")
+    );
+  } else {
+    showToast("Clipboard not available — open console and copy.");
+    console.log(out);
+  }
+}
+
+function downloadCodeReport(format) {
+  if (!_crLastData) { showToast("No review to download."); return; }
+  const base = "vibecheck_code_" + sanitizeFilename((_crLastMeta && _crLastMeta.context) || "review");
+  exportReportAs("code-report", base, format, "VibeCheck Code Review");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GLOBAL HOOKS
+// ═════════════════════════════════════════════════════════════════════════════
+document.addEventListener("DOMContentLoaded", () => {
+  const keyInp = document.getElementById("api-key-input");
+  if (keyInp) keyInp.addEventListener("keydown", e => { if (e.key === "Enter") submitApiKey(); });
+  renderFileTabs();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    const m = document.getElementById("api-modal");
+    if (m) m.classList.remove("show");
+    const d = document.getElementById("history-drawer");
+    if (d) d.classList.remove("open");
+  }
+});
+
+</script>
+</body>
+</html>
