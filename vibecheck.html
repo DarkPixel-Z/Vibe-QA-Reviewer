@@ -155,6 +155,19 @@
 
   /* ---- MODE TABS ---- */
   .mode-tabs { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+  .nav-gear { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 10px; font-size: 16px; cursor: pointer; transition: all .15s; margin-left: 10px; line-height: 1; }
+  .nav-gear:hover { border-color: var(--lime-dim); color: var(--lime); }
+  .prefs-grid { display: grid; gap: 14px; }
+  .prefs-grid .prefs-row { display: flex; flex-direction: column; gap: 5px; }
+  .prefs-grid label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .prefs-grid select, .prefs-grid textarea, .prefs-grid input[type=text] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px; }
+  .prefs-grid textarea { resize: vertical; min-height: 60px; }
+  .prefs-grid .check-row { flex-direction: row; align-items: center; gap: 8px; }
+  .prefs-grid .check-row label { font-family: 'Inter', sans-serif; color: var(--text); font-size: 13px; cursor: pointer; }
+  .prefs-footer { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .prefs-footer button { font-family: 'DM Mono', monospace; font-size: 11px; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: transparent; color: var(--muted); }
+  .prefs-footer .prefs-save { background: var(--lime); color: #0C0C10; border-color: var(--lime); font-weight: 700; }
+  .prefs-footer button:hover:not(.prefs-save) { border-color: var(--muted); color: var(--text); }
   .mode-tab { padding: 6px 14px; border: none; background: transparent; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap; }
   .mode-tab.active { background: var(--lime); color: #0C0C10; }
   .mode-tab:not(.active):hover { color: var(--text); }
@@ -348,6 +361,7 @@
       <button class="mode-tab active" id="tab-qa" onclick="switchMode('qa')">&#9889; App QA</button>
       <button class="mode-tab" id="tab-code" onclick="switchMode('code')">&#128196; Code Review</button>
     </div>
+    <button class="nav-gear" id="nav-gear-btn" onclick="openPrefs()" title="Preferences" aria-label="Preferences">&#9881;</button>
   </nav>
 
   <div class="wrap mobile-mode-switch">
@@ -593,6 +607,72 @@
       </div>
       <div class="modal-hint">Get a free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> &rarr; API Keys</div>
       <button class="modal-btn" onclick="submitApiKey()">&#9889; Save &amp; Continue</button>
+    </div>
+  </div>
+
+  <!-- PREFERENCES MODAL -->
+  <div class="modal-overlay" id="prefs-modal">
+    <div class="modal-box" style="max-width:500px">
+      <div class="modal-title">&#9881; Preferences</div>
+      <div class="modal-sub" style="margin-bottom:18px">Defaults that load on every session. Saved in this browser's localStorage only.</div>
+      <div class="prefs-grid">
+        <div class="prefs-row">
+          <label for="pref-builder">Default builder (App QA)</label>
+          <select id="pref-builder">
+            <option value="lovable">Lovable</option>
+            <option value="bolt">Bolt.new</option>
+            <option value="replit">Replit</option>
+            <option value="cursor">Cursor + manual code</option>
+            <option value="v0">v0 by Vercel</option>
+            <option value="webflow">Webflow + AI</option>
+            <option value="other">Other / Mixed</option>
+          </select>
+        </div>
+        <div class="prefs-row">
+          <label for="pref-apptype">Default app type</label>
+          <select id="pref-apptype">
+            <option value="saas">SaaS / Dashboard</option>
+            <option value="ecommerce">E-commerce / Store</option>
+            <option value="marketplace">Marketplace</option>
+            <option value="social">Social / Community</option>
+            <option value="portfolio">Portfolio / Landing page</option>
+            <option value="tool">Productivity tool</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="prefs-row">
+          <label for="pref-lang">Default code-review language</label>
+          <select id="pref-lang">
+            <option value="javascript">JavaScript</option>
+            <option value="react">React / JSX</option>
+            <option value="typescript">TypeScript</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="python">Python</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="prefs-row check-row">
+          <input type="checkbox" id="pref-vibe-default" style="accent-color:var(--lime);width:16px;height:16px">
+          <label for="pref-vibe-default">Vibe-Check preset on by default (App QA)</label>
+        </div>
+        <div class="prefs-row check-row">
+          <input type="checkbox" id="pref-skip-info" style="accent-color:var(--lime);width:16px;height:16px">
+          <label for="pref-skip-info">Auto-hide info-level findings on render</label>
+        </div>
+        <div class="prefs-row">
+          <label for="pref-focus">Custom focus (appended to every review prompt)</label>
+          <textarea id="pref-focus" rows="3" placeholder="e.g. I care especially about PCI compliance and Stripe integration safety. This is a healthcare-adjacent app — prioritize HIPAA-adjacent concerns."></textarea>
+        </div>
+      </div>
+      <div class="prefs-footer">
+        <button class="prefs-save" onclick="savePrefs()">Save</button>
+        <button onclick="closePrefs()">Cancel</button>
+        <button onclick="exportPrefs()" style="margin-left:auto">&#8681; Export JSON</button>
+        <button onclick="document.getElementById('prefs-import-file').click()">&#8679; Import JSON</button>
+        <button onclick="resetPrefs()" style="color:var(--fail);border-color:rgba(255,77,109,0.3)">Reset</button>
+        <input type="file" id="prefs-import-file" accept="application/json" style="display:none" onchange="importPrefsFromFile(this)">
+      </div>
     </div>
   </div>
 
@@ -1049,7 +1129,7 @@ Requirements:
 - Each category must have 2-4 specific issues
 - Score: start at 100, subtract ~15 per Fail, ~7 per Warn
 - codeFix must be real, specific, immediately applicable code — not pseudocode or generic examples
-- For ${builder}-built apps, focus especially on: error boundary coverage, form validation, mobile touch targets, auth edge cases`;
+- For ${builder}-built apps, focus especially on: error boundary coverage, form validation, mobile touch targets, auth edge cases${_currentPrefs && _currentPrefs.customFocus ? `\n\nADDITIONAL USER FOCUS (from saved preferences):\n${_currentPrefs.customFocus}` : ""}`;
 
   let reportData;
   try {
@@ -1634,6 +1714,114 @@ function runHistoryItem(i) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// PREFERENCES — saved in localStorage, exportable as JSON
+// ═════════════════════════════════════════════════════════════════════════════
+const PREFS_KEY = "vc_prefs";
+const PREFS_DEFAULTS = {
+  builder: "lovable",
+  appType: "saas",
+  lang: "javascript",
+  vibeCheckDefault: true,
+  skipInfo: false,
+  customFocus: ""
+};
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return Object.assign({}, PREFS_DEFAULTS);
+    const parsed = JSON.parse(raw);
+    return Object.assign({}, PREFS_DEFAULTS, parsed);
+  } catch(e) { return Object.assign({}, PREFS_DEFAULTS); }
+}
+
+function writePrefs(p) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch(e) {}
+}
+
+// Current prefs cached at page load; used by runCheck / runCodeReview.
+let _currentPrefs = PREFS_DEFAULTS;
+
+function applyPrefsToForm() {
+  _currentPrefs = loadPrefs();
+  const builder = document.getElementById("builder");
+  if (builder) builder.value = _currentPrefs.builder;
+  const apptype = document.getElementById("type");
+  if (apptype) apptype.value = _currentPrefs.appType;
+  const lang = document.getElementById("code-lang");
+  if (lang) lang.value = _currentPrefs.lang;
+  const vibe = document.getElementById("vibe-check");
+  if (vibe) vibe.checked = !!_currentPrefs.vibeCheckDefault;
+}
+
+function openPrefs() {
+  const p = loadPrefs();
+  document.getElementById("pref-builder").value = p.builder;
+  document.getElementById("pref-apptype").value = p.appType;
+  document.getElementById("pref-lang").value = p.lang;
+  document.getElementById("pref-vibe-default").checked = !!p.vibeCheckDefault;
+  document.getElementById("pref-skip-info").checked = !!p.skipInfo;
+  document.getElementById("pref-focus").value = p.customFocus || "";
+  document.getElementById("prefs-modal").classList.add("show");
+}
+
+function closePrefs() {
+  document.getElementById("prefs-modal").classList.remove("show");
+}
+
+function savePrefs() {
+  const p = {
+    builder: document.getElementById("pref-builder").value,
+    appType: document.getElementById("pref-apptype").value,
+    lang: document.getElementById("pref-lang").value,
+    vibeCheckDefault: document.getElementById("pref-vibe-default").checked,
+    skipInfo: document.getElementById("pref-skip-info").checked,
+    customFocus: document.getElementById("pref-focus").value.slice(0, 1000)
+  };
+  writePrefs(p);
+  _currentPrefs = p;
+  applyPrefsToForm();
+  closePrefs();
+  showToast("Preferences saved.");
+}
+
+function resetPrefs() {
+  if (!confirm("Reset preferences to defaults? This clears saved settings in this browser.")) return;
+  try { localStorage.removeItem(PREFS_KEY); } catch(e) {}
+  _currentPrefs = Object.assign({}, PREFS_DEFAULTS);
+  applyPrefsToForm();
+  openPrefs(); // refresh modal with defaults
+  showToast("Preferences reset.");
+}
+
+function exportPrefs() {
+  const p = loadPrefs();
+  downloadBlob(".vibecheck-prefs.json", "application/json", JSON.stringify(p, null, 2));
+}
+
+function importPrefsFromFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const merged = Object.assign({}, PREFS_DEFAULTS, parsed);
+      writePrefs(merged);
+      _currentPrefs = merged;
+      applyPrefsToForm();
+      openPrefs(); // refresh modal with imported values
+      showToast("Preferences imported.");
+    } catch(e) {
+      showToast("Invalid preferences file: " + e.message);
+    } finally {
+      input.value = ""; // allow re-importing the same file
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REPORT DOWNLOAD (shared helper, used by QA + Code Review)
 // ═════════════════════════════════════════════════════════════════════════════
 function sanitizeFilename(s) {
@@ -1869,7 +2057,8 @@ async function runCodeReview() {
     "Requirements:\n" +
     "- Produce 4-12 issues. Cover a mix of severities.\n" +
     "- Every issue MUST have real badCode + goodCode drawn from or applicable to the pasted code.\n" +
-    "- Be specific. Avoid generic advice.";
+    "- Be specific. Avoid generic advice." +
+    (_currentPrefs && _currentPrefs.customFocus ? "\n\nADDITIONAL USER FOCUS (from saved preferences):\n" + _currentPrefs.customFocus : "");
 
   let reportData;
   try {
@@ -2076,6 +2265,9 @@ function renderCodeReport(data, meta, savedDateStr) {
   // Cost footer
   renderCostFooter("cr-cost-footer", data._usage, "claude-sonnet-4-6");
 
+  // Apply skipInfo pref (hides info-level issues on initial render if set)
+  filterIssues();
+
   showScreen("code-report");
 }
 
@@ -2092,10 +2284,13 @@ function filterIssues(level) {
     if (active) active.classList.add("active-" + level);
   }
   const q = (document.getElementById("filter-search") || {value:""}).value.trim().toLowerCase();
+  const skipInfo = _currentPrefs && _currentPrefs.skipInfo;
   document.querySelectorAll("#cr-issues-grid .issue-card").forEach(card => {
     const sev = card.getAttribute("data-severity");
     const text = card.getAttribute("data-text") || "";
-    const levelOk = _crCurrentFilter === "all" || sev === _crCurrentFilter;
+    const levelOk = _crCurrentFilter === "all"
+      ? (!skipInfo || sev !== "info")
+      : sev === _crCurrentFilter;
     const searchOk = !q || text.includes(q);
     card.style.display = (levelOk && searchOk) ? "" : "none";
   });
@@ -2427,12 +2622,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const keyInp = document.getElementById("api-key-input");
   if (keyInp) keyInp.addEventListener("keydown", e => { if (e.key === "Enter") submitApiKey(); });
   renderFileTabs();
+  applyPrefsToForm();
 });
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     const m = document.getElementById("api-modal");
     if (m) m.classList.remove("show");
+    const p = document.getElementById("prefs-modal");
+    if (p) p.classList.remove("show");
     const d = document.getElementById("history-drawer");
     if (d) d.classList.remove("open");
   }
