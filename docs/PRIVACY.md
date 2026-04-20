@@ -1,6 +1,6 @@
 # Privacy & Data Flow
 
-VibeCheck is a **single HTML file** that runs entirely in your browser. DarkPixel Consulting Inc. operates **no servers** for VibeCheck. **We cannot see anything you paste into it.**
+Qualmly is a **single HTML file** that runs entirely in your browser. DarkPixel Consulting Inc. operates **no servers** for Qualmly. **We cannot see anything you paste into it.**
 
 This document describes exactly what data leaves your browser, who receives it, and why — so you can decide whether it's appropriate for the code and URLs you intend to analyze.
 
@@ -35,7 +35,7 @@ Three storage modes, selectable on the API-key modal:
 | Mode | Where it lives | Notes |
 |---|---|---|
 | **Tab only** (default) | `sessionStorage` | Wipes when the tab closes. Nothing persists across browser restarts. |
-| **Remember** | `localStorage`, plaintext | Survives restarts. Readable by JavaScript on the VibeCheck origin (so XSS would be a concern) and by anyone with filesystem access to this browser profile. **Not recommended on shared machines.** |
+| **Remember** | `localStorage`, plaintext | Survives restarts. Readable by JavaScript on the Qualmly origin (so XSS would be a concern) and by anyone with filesystem access to this browser profile. **Not recommended on shared machines.** |
 | **Remember + Encrypt** | `localStorage`, AES-GCM ciphertext | Encrypted at rest with a PBKDF2-derived key (300,000 iterations, SHA-256). You type a passphrase once per session to decrypt. The decrypted key lives in tab memory only. |
 
 **Idle timeout (Preferences):** if set, the in-memory key (and any plaintext-localStorage copy) is wiped after the configured period with no API activity. The encrypted blob itself stays put — user just re-enters their passphrase. Useful for shared machines.
@@ -50,7 +50,7 @@ When a report renders, a compressed copy is saved to your browser's **`localStor
 
 ## What DarkPixel Consulting Inc. collects
 
-**Directly from VibeCheck: nothing.** No analytics, no phone-home, no telemetry. The tool does not contact DarkPixel servers because there are none.
+**Directly from Qualmly: nothing.** No analytics, no phone-home, no telemetry. The tool does not contact DarkPixel servers because there are none.
 
 **From Gumroad (your purchase):** Gumroad provides us with your purchase email, name (if you provided one), amount, and country. We use this to:
 
@@ -65,13 +65,13 @@ We do not sell, rent, or share this data with third parties for their own market
 
 ## Guidance for sensitive data
 
-**Do not paste into VibeCheck:**
+**Do not paste into Qualmly:**
 
 - URLs containing session tokens, API keys, or other secrets in the URL itself
 - Code containing production secrets, private keys, or real user PII
 - Data covered by strict regulatory regimes — **PHI (HIPAA / PHIPA / PIPEDA)**, **PCI cardholder data**, or **trade secrets under an NDA**. The third-party CORS proxies and Anthropic's commercial terms may not satisfy your compliance obligations.
 
-If you need to analyze regulated data, **redact first** — or do not use VibeCheck for that workload.
+If you need to analyze regulated data, **redact first** — or do not use Qualmly for that workload.
 
 ---
 

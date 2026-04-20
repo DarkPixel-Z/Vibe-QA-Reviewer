@@ -1,16 +1,18 @@
-# ⚡ VibeCheck — QA for things you shipped too fast
+# ⚡ Qualmly — ship with no qualms
 
-> AI-powered QA & Code Review tool for vibe-coded apps. Get a real audit in 30 seconds — no engineer required.
+> AI reviewer that raises every concern about code shipped from Lovable, Bolt, v0, Cursor, and Copilot. Get a real audit in 30 seconds — no engineer required.
 
-![VibeCheck](https://img.shields.io/badge/beta-v0.1-C9FF47?style=flat-square&labelColor=0C0C10)
+![Qualmly](https://img.shields.io/badge/v1-C9FF47?style=flat-square&labelColor=0C0C10)
 ![License](https://img.shields.io/badge/license-MIT-3DFFA0?style=flat-square&labelColor=0C0C10)
 ![Built with Claude](https://img.shields.io/badge/built%20with-Claude%20API-5B8DEF?style=flat-square&labelColor=0C0C10)
+
+**[Try it now → qualmly.dev](https://qualmly.dev)**
 
 ---
 
 ## 🚀 What it does
 
-VibeCheck is a **single HTML file** — no backend, no install, no database. Drop it anywhere and it runs.
+Qualmly is a **single HTML file** — no backend, no install, no database. Drop it anywhere and it runs.
 
 ### ⚡ App QA Mode
 Paste a live app URL and get a full QA report across **8 categories**:
@@ -23,7 +25,7 @@ Paste a live app URL and get a full QA report across **8 categories**:
 - Accessibility (WCAG 2.2)
 - Data persistence & state
 
-**Real URL crawling** — VibeCheck actually fetches your live page using a 5-layer proxy fallback system:
+**Real URL crawling** — Qualmly actually fetches your live page using a 5-layer proxy fallback system:
 1. 3 CORS proxies in parallel (allorigins, codetabs, corsproxy)
 2. Wayback Machine archive fallback
 3. sitemap.xml crawl for route structure
@@ -40,8 +42,14 @@ Paste any code (30+ languages supported) and get:
 - **SOLID, DRY, KISS, 12-Factor** architecture review
 - **UAT test scenarios** with priority + automation hints
 - **Per-issue fix confidence score**
-- **⚡ Insert Fix** button — replaces bad code in-place with a diff view
-- **↺ Re-run Review** after applying fixes
+- **📝 Plain-English toggle** — rewrites every finding for non-technical readers
+- **🛡 Mark as intentional** — click on any finding, explain the context, Qualmly re-evaluates and downgrades or dismisses as appropriate
+
+### 🚀 Paste-into-builder prompts
+Every finding comes with a natural-language fix prompt tuned to the AI coding tool you use — **Lovable, Bolt, v0, Cursor, GitHub Copilot, Claude Code, Windsurf, Replit, or Webflow AI**. Copy → paste into your chat → done.
+
+### 💰 Cost transparency
+Every review shows the exact Anthropic spend. Typical run: ~$0.03.
 
 ---
 
@@ -50,33 +58,40 @@ Paste any code (30+ languages supported) and get:
 | Feature | Details |
 |---|---|
 | 🌐 Real URL crawling | 5-layer fallback — proxies → Wayback → sitemap → manual paste |
+| 🛡 Vibe-Code preset | Scans for the failures common in AI-generated code (missing Supabase RLS, leaked `sk_live_` keys, exposed admin routes, unverified Stripe webhooks, CORS=* with credentials) |
+| 🚀 Builder paste prompts | Copy-paste natural-language fixes for 9 AI coding tools |
+| 📝 Plain-English mode | Rewrites every finding for a non-technical reader |
+| 🛡 Mark-as-intentional | Per-finding "this is OK because..." re-evaluation |
 | 📊 Scored reports | 0–100 quality score with animated ring |
-| 🔐 API key modal | Secure in-browser key entry, stored in sessionStorage only |
+| 🔐 API key storage | 3 modes: sessionStorage, localStorage, or AES-GCM encrypted with passphrase |
+| ⏱ Idle auto-clear | Optional auto-wipe after inactivity (30m / 2h / 4h / 8h / 24h) |
+| ⚙ Preferences | Defaults + custom-focus textarea; exportable/importable JSON |
 | 📁 Multi-file review | Tab-based code editor for multi-file projects |
 | 🔍 Severity filter | Filter issues by Critical / Warning / Info + live search |
 | 📜 Report history | Last 8 reports saved in localStorage |
 | ↔ Diff view | Before/After diff on every inserted fix |
 | 🔁 Re-run | Re-analyze after applying fixes to verify improvement |
+| 💰 Cost footer | Live Anthropic spend per review |
 | 📤 Export | HTML, PDF, and Word (.doc) export for all reports |
 | 📱 Mobile-ready | Full responsive layout with mobile mode switcher |
+| 📲 Install as app | PWA manifest — click "Install" in Chrome/Edge for a desktop app |
 | 🔗 Shareable URLs | Reports encoded into URL hash — share without a server |
-| 🏢 DarkPixel CTA | Professional consulting CTA on every report |
 
 ---
 
 ## 🛠 How to run it
 
-Three ways to use VibeCheck, ordered from zero-friction to full control.
+Three ways to use Qualmly, ordered from zero-friction to full control.
 
 ### A — Use the hosted version (easiest)
 
-Open **[https://darkpixel-z.github.io/Vibe-QA-Reviewer/vibecheck.html](https://darkpixel-z.github.io/Vibe-QA-Reviewer/vibecheck.html)** in your browser. Bookmark it. Done.
+Open **[https://qualmly.dev](https://qualmly.dev)** in your browser. Bookmark it. Done.
 
-Your Anthropic API key stays in **your** browser (sessionStorage) and only ever leaves your machine to reach Anthropic's servers. The hosted version doesn't send anything anywhere else — we don't operate a server for this tool.
+Your Anthropic API key stays in **your** browser (sessionStorage / localStorage / encrypted, your choice) and only leaves your machine to reach Anthropic's servers. The hosted version doesn't send anything anywhere else — we don't operate a server for this tool.
 
 ### B — Install as an app
 
-From the hosted URL above, Chrome or Edge will show an **install icon** in the address bar (a little screen-with-arrow). Click it → VibeCheck becomes a desktop app with its own icon and window. No browser chrome, no bookmark to hunt for.
+From the hosted URL above, Chrome or Edge will show an **install icon** in the address bar (a little screen-with-arrow). Click it → Qualmly becomes a desktop app with its own icon and window. No browser chrome, no bookmark to hunt for.
 
 On iPhone/Android: open the URL → browser menu → **"Add to Home Screen"**.
 
@@ -84,100 +99,45 @@ On iPhone/Android: open the URL → browser menu → **"Add to Home Screen"**.
 
 If you bought the Gumroad package, or cloned the repo, you'll have three files you need to keep together:
 
-- `vibecheck.html` — the app
+- `index.html` — the app
 - `manifest.json` — tells the browser it's a PWA
 - `icon.svg` — the app icon
 
-**Don't just double-click `vibecheck.html`.** Browsers treat `file://` as a "unique security origin," which breaks the Anthropic API call and the URL-crawling proxies. You need to serve the files over HTTP. Easiest way:
+**Don't just double-click `index.html`.** Browsers treat `file://` as a "unique security origin," which breaks the Anthropic API call and the URL-crawling proxies. You need to serve the files over HTTP. Easiest way:
 
 ```bash
 # Windows (Python bundled with Windows 10+)
-cd path/to/vibecheck-folder
+cd path/to/qualmly-folder
 python -m http.server 8765
 
 # macOS / Linux
-cd path/to/vibecheck-folder
+cd path/to/qualmly-folder
 python3 -m http.server 8765
 
 # Or with Node (any OS)
 npx http-server -p 8765
 ```
 
-Then open **http://localhost:8765/vibecheck.html** in your browser. Leave the terminal running while you use the app; `Ctrl+C` when done.
+Then open **http://localhost:8765/** in your browser. Leave the terminal running while you use the app; `Ctrl+C` when done.
 
 ### D — Host on your own site
 
-Upload all three files (`vibecheck.html`, `manifest.json`, `icon.svg`) to any static-site host — Netlify, Vercel, Cloudflare Pages, GitHub Pages, your Wix site's media library, etc. Point your browser at whatever URL your host gives you.
+Upload all three files (`index.html`, `manifest.json`, `icon.svg`) to any static-site host — Netlify, Vercel, Cloudflare Pages, GitHub Pages, your Wix site's media library, etc. Point your browser at whatever URL your host gives you.
 
 ---
 
 ## 🔑 API Key
 
-VibeCheck uses the **Anthropic Claude API** directly from the browser.
+Qualmly uses the **Anthropic Claude API** directly from the browser.
 
-1. Get a free key at [console.anthropic.com](https://console.anthropic.com) → API Keys
-2. On first run, VibeCheck prompts you with a secure modal
-3. Key is stored in `sessionStorage` — never leaves your browser except to Anthropic's servers
+1. Get a key at [console.anthropic.com](https://console.anthropic.com) → API Keys
+2. On first run, Qualmly prompts you with a modal
+3. Pick your storage mode:
+   - **Tab only** (default) — `sessionStorage`, wipes on tab close
+   - **Remember** — `localStorage` plaintext
+   - **Remember + Encrypt** — `localStorage` AES-GCM, passphrase-unlocked each session
 
-> **Never commit your API key to this repo.** The modal handles it safely.
-
----
-
-## 🧪 Test Entry
-
-Use this to verify everything is working:
-
-| Field | Value |
-|---|---|
-| **App URL** | `https://app.lovable.dev/projects/demo` |
-| **What does it do** | A SaaS project management dashboard where users log in, create projects, assign tasks to team members, set deadlines, and track progress with a kanban board. Built with Lovable using Supabase for authentication and database. |
-| **App type** | SaaS / Dashboard |
-| **Built with** | Lovable |
-
-**What to check:**
-- ✅ Terminal animation plays (12 steps)
-- ✅ Crawl status shows in terminal (proxy result or fallback message)
-- ✅ Crawl badge appears on report (green = live crawl, amber = inference)
-- ✅ Score ring animates
-- ✅ All 8 category cards render
-- ✅ Code fix snippets appear in each expanded card
-- ✅ DarkPixel CTA appears below cards
-- ✅ HTML / PDF / Word download buttons work
-- ✅ URL hash updates to `#r=...` (shareable link)
-
----
-
-## 📁 File Structure
-
-```
-Vibe-QA-Reviewer/
-├── vibecheck.html     ← The entire app (~2600 lines, no build step)
-├── manifest.json      ← PWA manifest — lets Chrome/Edge "Install as app"
-├── icon.svg           ← App icon used by the manifest + browser tab
-├── README.md          ← This file
-├── LICENSE            ← MIT (public-source terms)
-└── docs/
-    ├── COMMERCIAL-LICENSE.md   ← Rights granted by paid Gumroad tiers
-    ├── DISCLAIMER.md           ← AS-IS / verify-before-shipping
-    └── PRIVACY.md              ← Full data-flow disclosure
-```
-
-`vibecheck.html`, `manifest.json`, and `icon.svg` must stay in the same directory for the "Install as app" button to appear in Chrome/Edge.
-
----
-
-## 🗺 Roadmap
-
-- [ ] OG image generator for shareable report previews
-- [ ] GitHub Gist integration — save/load code files directly
-- [ ] CI/CD webhook — trigger reviews on every push
-- [ ] Team/agency white-label (remove DarkPixel CTA, swap in yours)
-
----
-
-## 🏢 Built by
-
-**[DarkPixel Consulting Inc.](https://www.darkpixelconsultinginc.co/)** — Expert web & app development. We ship it right the first time.
+> **Never commit your API key to a repo.** The modal handles it safely.
 
 ---
 
@@ -204,7 +164,7 @@ Need a deeper engagement — custom review prompts tuned to your stack, on-prem 
 The paid Gumroad tiers add commercial rights on top of MIT: email support, 12 months of update access, a written commercial license you can show clients or accountants, and — with the Agency tier — permission to white-label the report. If you just want the tool for yourself and don't need any of that, the MIT source is free. No purchase required.
 
 **Do I need my own API key?**
-Yes. VibeCheck calls Anthropic's Claude API directly from your browser using **your** key. Get one at [console.anthropic.com](https://console.anthropic.com). Typical review costs a few cents and the exact amount is shown on every report.
+Yes. Qualmly calls Anthropic's Claude API directly from your browser using **your** key. Get one at [console.anthropic.com](https://console.anthropic.com). Typical review costs a few cents and the exact amount is shown on every report.
 
 **Is it safe to tick "Remember on this device"?**
 Depends on the machine. Three storage modes are available on the API-key modal:
@@ -231,3 +191,46 @@ No. It's AI-assisted triage — useful for catching common mistakes quickly, not
 
 **What about refunds?**
 See the refund policy on the Gumroad listing at the time of purchase.
+
+---
+
+## 📁 File Structure
+
+```
+qualmly/
+├── index.html         ← The entire app (~2900 lines, no build step)
+├── manifest.json      ← PWA manifest — lets Chrome/Edge "Install as app"
+├── icon.svg           ← App icon used by the manifest + browser tab
+├── CNAME              ← GitHub Pages custom-domain config (qualmly.dev)
+├── README.md          ← This file
+├── LICENSE            ← MIT (public-source terms)
+└── docs/
+    ├── COMMERCIAL-LICENSE.md   ← Rights granted by paid Gumroad tiers
+    ├── DISCLAIMER.md           ← AS-IS / verify-before-shipping
+    └── PRIVACY.md              ← Full data-flow disclosure
+```
+
+`index.html`, `manifest.json`, and `icon.svg` must stay in the same directory for the "Install as app" button to appear in Chrome/Edge.
+
+---
+
+## 🗺 Roadmap
+
+- [ ] OG image generator for shareable report previews
+- [ ] GitHub Gist integration — save/load code files directly
+- [ ] CI/CD webhook — trigger reviews on every push
+- [ ] Team/agency white-label (remove DarkPixel CTA, swap in yours)
+
+---
+
+## 🏢 Built by
+
+**[DarkPixel Consulting Inc.](https://www.darkpixelconsultinginc.co/)** — Expert web & app development. We ship it right the first time.
+
+---
+
+## 📄 License
+
+The source in this repository is **MIT** — see [LICENSE](LICENSE).
+
+Paid Gumroad tiers add commercial rights (white-label, commercial support, updates) on top of MIT — see [docs/COMMERCIAL-LICENSE.md](docs/COMMERCIAL-LICENSE.md).
