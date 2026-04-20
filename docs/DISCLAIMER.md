@@ -1,8 +1,8 @@
 # Disclaimer
 
-**VibeCheck produces AI-generated suggestions, not professional advice.**
+**Qualmly produces AI-generated suggestions, not professional advice.**
 
-VibeCheck uses Anthropic's Claude model to analyze code and web pages. AI output can be:
+Qualmly uses Anthropic's Claude model to analyze code and web pages. AI output can be:
 
 - **Incorrect** — false positives (flagging non-issues) and false negatives (missing real ones)
 - **Incomplete** — real vulnerabilities or defects may be silently skipped
@@ -12,9 +12,9 @@ VibeCheck uses Anthropic's Claude model to analyze code and web pages. AI output
 
 ## Before you act on any finding
 
-1. **Verify every issue manually.** A "Critical" flag from VibeCheck is a hypothesis, not a diagnosis. Read the flagged code, confirm the issue is real, and understand the implication before changing anything.
+1. **Verify every issue manually.** A "Critical" flag from Qualmly is a hypothesis, not a diagnosis. Read the flagged code, confirm the issue is real, and understand the implication before changing anything.
 2. **Test fixes in a staging environment.** The Before/After snippets are suggestions — they may not compile, may introduce new bugs, or may not match your actual codebase conventions.
-3. **For high-stakes systems, get a human audit.** VibeCheck is not a substitute for professional review in any domain involving:
+3. **For high-stakes systems, get a human audit.** Qualmly is not a substitute for professional review in any domain involving:
    - Payments or financial data (PCI DSS)
    - Health information (HIPAA / PIPEDA / PHIPA)
    - Personal data at scale (GDPR / PIPEDA / Law 25 / CCPA)
@@ -23,9 +23,9 @@ VibeCheck uses Anthropic's Claude model to analyze code and web pages. AI output
 
 ---
 
-## What VibeCheck is NOT
+## What Qualmly is NOT
 
-VibeCheck is **not**:
+Qualmly is **not**:
 
 - A penetration test
 - A SOC 2, ISO 27001, HIPAA, or PCI audit
@@ -33,7 +33,7 @@ VibeCheck is **not**:
 - Legal advice of any kind
 - A guarantee that your application is secure, accessible, performant, or bug-free
 
-Industry frameworks referenced by the tool (OWASP Top 10, CWE/SANS Top 25, WCAG 2.2, SOLID, etc.) are used as **analytical lenses**. Passing a VibeCheck review does not mean your code complies with those standards — only that Claude did not flag the specific issues it examined during that one run.
+Industry frameworks referenced by the tool (OWASP Top 10, CWE/SANS Top 25, WCAG 2.2, SOLID, etc.) are used as **analytical lenses**. Passing a Qualmly review does not mean your code complies with those standards — only that Claude did not flag the specific issues it examined during that one run.
 
 ---
 
@@ -41,9 +41,9 @@ Industry frameworks referenced by the tool (OWASP Top 10, CWE/SANS Top 25, WCAG 
 
 To the maximum extent permitted by applicable law, DarkPixel Consulting Inc. disclaims all warranties, express or implied, including warranties of merchantability, fitness for a particular purpose, and non-infringement.
 
-DarkPixel Consulting Inc. is not liable for any damages — direct, indirect, incidental, consequential, special, punitive, or otherwise — arising out of or in connection with use of VibeCheck, including but not limited to:
+DarkPixel Consulting Inc. is not liable for any damages — direct, indirect, incidental, consequential, special, punitive, or otherwise — arising out of or in connection with use of Qualmly, including but not limited to:
 
-- Security breaches in code VibeCheck reviewed
+- Security breaches in code Qualmly reviewed
 - Data loss, downtime, or service interruption
 - Lost business, revenue, or reputation
 - Costs of remediation, re-audit, or regulatory response
@@ -61,6 +61,6 @@ Some Canadian provinces and other jurisdictions do not allow the full exclusion 
 
 ## Acknowledgement
 
-By using VibeCheck, you acknowledge that you have read, understood, and accepted this disclaimer.
+By using Qualmly, you acknowledge that you have read, understood, and accepted this disclaimer.
 
 *Shipped with every Gumroad purchase and referenced by the Commercial License. Last updated April 2026.*

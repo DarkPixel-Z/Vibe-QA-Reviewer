@@ -1,8 +1,8 @@
 {
-  "name": "VibeCheck — QA for vibe-coded apps",
-  "short_name": "VibeCheck",
-  "description": "AI-powered QA and code-review tool for apps built in Lovable, Bolt, v0, and Cursor.",
-  "start_url": "./vibecheck.html",
+  "name": "Qualmly — ship with no qualms",
+  "short_name": "Qualmly",
+  "description": "AI reviewer that raises every concern about code shipped from Lovable, Bolt, v0, Cursor, and Copilot. One HTML file, your Claude key.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

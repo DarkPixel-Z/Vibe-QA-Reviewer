@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="AI-powered QA and code-review tool for apps built in Lovable, Bolt, v0, and Cursor. Single HTML file, bring your own Claude key.">
+<meta name="description" content="Qualmly raises every concern about code shipped from Lovable, Bolt, v0, Cursor, and Copilot. One HTML file, your Claude key, honest answers. Ship with no qualms.">
 <meta name="theme-color" content="#D4FF4F">
-<title>VibeCheck — QA for things you shipped too fast</title>
+<title>Qualmly — the AI reviewer that voices every qualm about your shipped code</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon.svg">
@@ -370,7 +370,7 @@
   <nav>
     <div class="logo">
       <div class="logo-icon">&#9889;</div>
-      <div class="logo-text">Vibe<span>Check</span></div>
+      <div class="logo-text">Qualm<span>ly</span></div>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active" id="tab-qa" onclick="switchMode('qa')">&#9889; App QA</button>
@@ -386,9 +386,9 @@
 
   <div id="input-screen">
     <div class="hero">
-      <div class="hero-eyebrow">AI-powered QA &middot; free beta</div>
-      <h1>QA for things you <br><span class="accent">shipped too fast</span></h1>
-      <p class="hero-sub">Drop your vibe-coded app URL. Get a real QA report in 30 seconds &mdash; no engineer required.</p>
+      <div class="hero-eyebrow">AI reviewer &middot; your Claude key</div>
+      <h1>Every qualm, <br><span class="accent">caught before prod.</span></h1>
+      <p class="hero-sub">Drop your vibe-coded app URL. Qualmly raises every concern in 30 seconds &mdash; no engineer required.</p>
     </div>
     <div class="form-card">
       <div class="form-group">
@@ -450,7 +450,7 @@
       </div>
       <div id="error-msg" class="error-box"></div>
       <button class="cta-btn" id="check-btn" onclick="runCheck()">&#9889; Run QA Check &mdash; it's free</button>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/Vibe-QA-Reviewer/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/Vibe-QA-Reviewer/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
     </div>
     <div class="proof-row">
       <div class="proof-item">
@@ -506,7 +506,7 @@
       </div>
       <div id="code-error-msg" class="error-box"></div>
       <button class="cta-btn" id="code-check-btn" onclick="runCodeReview()">&#128196; Run Code Review &amp; UAT</button>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/Vibe-QA-Reviewer/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/Vibe-QA-Reviewer/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
     </div>
     <div class="proof-row">
       <div class="proof-item">
@@ -747,7 +747,7 @@
     <div class="terminal">
       <div class="terminal-bar">
         <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
-        <div class="terminal-title">vibecheck &mdash; running analysis</div>
+        <div class="terminal-title">qualmly &mdash; raising concerns</div>
       </div>
       <div class="terminal-body" id="terminal-log"></div>
     </div>
@@ -756,7 +756,7 @@
   <div id="report">
     <div class="shared-banner" id="shared-banner">
       <span class="shared-banner-dot"></span>
-      <span>You're viewing a shared VibeCheck report</span>
+      <span>You're viewing a shared Qualmly report</span>
       <a onclick="startFresh()">Check my own app &rarr;</a>
     </div>
 
@@ -823,7 +823,7 @@
 
 <footer>
   <div class="wrap">
-    Built with &#9889; Claude API &middot; <a href="#">Open source soon</a> &middot; Made for vibe coders
+    Built with &#9889; Claude API &middot; <a href="https://github.com/DarkPixel-Z/qualmly" target="_blank" rel="noopener">Open source (MIT)</a> &middot; Made for vibe coders
     &middot; <a href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener" class="dp-link">DarkPixel Consulting Inc.</a>
   </div>
 </footer>
@@ -2145,7 +2145,7 @@ function resetPrefs() {
 
 function exportPrefs() {
   const p = loadPrefs();
-  downloadBlob(".vibecheck-prefs.json", "application/json", JSON.stringify(p, null, 2));
+  downloadBlob("qualmly-prefs.json", "application/json", JSON.stringify(p, null, 2));
 }
 
 function importPrefsFromFile(input) {
@@ -2234,8 +2234,8 @@ let _lastQaData = null;
 
 function downloadReport(format) {
   if (!_lastQaData) { showToast("No report to download yet."); return; }
-  const base = "vibecheck_qa_" + sanitizeFilename(_lastQaUrl || "report");
-  exportReportAs("report", base, format, "VibeCheck QA Report");
+  const base = "qualmly_qa_" + sanitizeFilename(_lastQaUrl || "report");
+  exportReportAs("report", base, format, "Qualmly QA Report");
 }
 
 // Wrap renderReport to remember state + save history
@@ -2940,7 +2940,7 @@ function copyFixedFile() {
   });
   const fileNames = Object.keys(byFile);
   if (fileNames.length === 0) { showToast("No fix snippets to copy."); return; }
-  let out = "// Fixed snippets from VibeCheck review\n";
+  let out = "// Fixed snippets from Qualmly review\n";
   fileNames.forEach(f => {
     out += "\n// ----- " + f + " -----\n";
     byFile[f].forEach(e => {
@@ -2960,8 +2960,8 @@ function copyFixedFile() {
 
 function downloadCodeReport(format) {
   if (!_crLastData) { showToast("No review to download."); return; }
-  const base = "vibecheck_code_" + sanitizeFilename((_crLastMeta && _crLastMeta.context) || "review");
-  exportReportAs("code-report", base, format, "VibeCheck Code Review");
+  const base = "qualmly_code_" + sanitizeFilename((_crLastMeta && _crLastMeta.context) || "review");
+  exportReportAs("code-report", base, format, "Qualmly Code Review");
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
