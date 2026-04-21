@@ -2363,10 +2363,24 @@ async function runCodeReview() {
     "\n\n=== FILE: " + f.name + " ===\n" + (f.content || "")
   ).join("");
 
+  // Pull the buyer's default builder from Preferences. If it's an AI-builder
+  // (Lovable / Bolt / Cursor / Copilot / Claude Code / Windsurf / etc.),
+  // request a per-issue builderFixPrompt so we can render a "Paste into X" box.
+  const crBuilder = (_currentPrefs && _currentPrefs.builder) || "other";
+  const AI_BUILDERS = ["lovable","bolt","v0","replit","webflow","cursor","copilot","claude-code","windsurf"];
+  const crWantsBuilderPrompt = AI_BUILDERS.includes(crBuilder);
+  const crBuilderLabel = BUILDER_LABELS[crBuilder] || crBuilder;
+  const crBuilderCtx = BUILDER_CONTEXT[crBuilder] || { surface: "your AI coding tool", style: "natural-language prompt" };
+
+  const crBuilderField = crWantsBuilderPrompt
+    ? ",\n      \"builderFixPrompt\": \"<2-4 sentence prompt the user pastes DIRECTLY INTO " + crBuilderCtx.surface + " to apply this fix. Style: " + crBuilderCtx.style + ". Reference the file/line/function by name. Must be specific to this issue, not generic.>\""
+    : "";
+
   const prompt = "You are a senior staff engineer performing a rigorous code review.\n\n" +
     "Language: " + lang + "\n" +
     "What this code does: " + context + "\n" +
     "Number of files: " + codeFiles.length + "\n" +
+    (crWantsBuilderPrompt ? "Fix-prompt target: " + crBuilderLabel + " (" + crBuilderCtx.surface + ")\n" : "") +
     filesBlock + "\n\n" +
     "Review the code against:\n" +
     "- OWASP Top 10 (2025)\n" +
@@ -2389,7 +2403,7 @@ async function runCodeReview() {
     "      \"description\": \"<1-3 sentence explanation of the problem and impact>\",\n" +
     "      \"fixConfidence\": <integer 0-100>,\n" +
     "      \"badCode\": \"<original snippet, max 6 lines>\",\n" +
-    "      \"goodCode\": \"<fixed snippet, max 10 lines>\"\n" +
+    "      \"goodCode\": \"<fixed snippet, max 10 lines>\"" + crBuilderField + "\n" +
     "    }\n" +
     "  ],\n" +
     "  \"uat\": [\n" +
@@ -2458,7 +2472,7 @@ async function runCodeReview() {
   }
 
   _crLastData = reportData;
-  _crLastMeta = { lang, context, files: codeFiles.map(f => ({ name: f.name, content: f.content })) };
+  _crLastMeta = { lang, context, builder: crBuilder, files: codeFiles.map(f => ({ name: f.name, content: f.content })) };
   renderCodeReport(reportData, _crLastMeta, null);
   document.getElementById("code-check-btn").disabled = false;
 }
@@ -2556,6 +2570,7 @@ function renderCodeReport(data, meta, savedDateStr) {
   }).join("");
 
   // Issues
+  const crBuilderForRender = meta && meta.builder;
   const issuesGrid = document.getElementById("cr-issues-grid");
   issuesGrid.innerHTML = issues.map((iss, i) => {
     const cls = severityToClass(iss.severity);
@@ -2563,6 +2578,7 @@ function renderCodeReport(data, meta, savedDateStr) {
     const searchText = ((iss.title || "") + " " + (iss.description || "") + " " + (iss.standard || "") + " " + (iss.file || "")).toLowerCase();
     const title = iss.title || ("Issue " + (i+1));
     const description = iss.description || "";
+    const builderPromptHtml = buildBuilderPromptHTML(iss.builderFixPrompt, crBuilderForRender);
     return "<div class=\"issue-card\" data-idx=\"" + i + "\" data-severity=\"" + cls + "\" data-text=\"" + escapeHtml(searchText) + "\" data-tech-title=\"" + escapeHtml(title) + "\" data-tech-desc=\"" + escapeHtml(description) + "\">" +
       "<div class=\"issue-card-header\" onclick=\"this.parentElement.classList.toggle('open')\">" +
         "<div class=\"status-icon " + cls + "\">" + severityIcon(iss.severity) + "</div>" +
@@ -2575,10 +2591,22 @@ function renderCodeReport(data, meta, savedDateStr) {
         (description ? "<div class=\"js-issue-desc\" style=\"margin-bottom:10px\">" + escapeHtml(description) + "</div>" : "<div class=\"js-issue-desc\" style=\"margin-bottom:10px;display:none\"></div>") +
         (confidence !== null ? "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:6px\">Fix confidence: <strong style=\"color:var(--lime)\">" + confidence + "%</strong></div>" : "") +
         buildBadVsGood(iss.badCode, iss.goodCode) +
+        builderPromptHtml +
         "<div class=\"js-intentional-area\"><button class=\"mark-int-btn\" onclick=\"event.stopPropagation(); startMarkIntentional(this)\">&#128737; Mark as intentional</button></div>" +
       "</div>" +
     "</div>";
   }).join("");
+
+  // Wire raw builderFixPrompt to its Copy button per card (buildBuilderPromptHTML
+  // writes escaped HTML to data-code; swap to the raw string so Copy puts plain text on clipboard).
+  document.querySelectorAll("#cr-issues-grid .issue-card").forEach((card, i) => {
+    const iss = issues[i];
+    if (!iss || !iss.builderFixPrompt) return;
+    const btns = card.querySelectorAll(".code-fix-box .code-copy-btn");
+    // Layout: 0=bad copy, 1=good copy, 2=builder prompt copy (if present)
+    const promptBtn = btns[btns.length - 1];
+    if (promptBtn) promptBtn.dataset.code = iss.builderFixPrompt;
+  });
 
   // Filter counts + reset
   document.getElementById("fc-all").textContent = issues.length;
