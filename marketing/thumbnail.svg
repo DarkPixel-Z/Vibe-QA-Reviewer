@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200">
+  <defs>
+    <!-- Background radial glow — matches the app's layered bg -->
+    <radialGradient id="glowLime" cx="15%" cy="10%" r="60%">
+      <stop offset="0" stop-color="#D4FF4F" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#D4FF4F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCyan" cx="85%" cy="90%" r="55%">
+      <stop offset="0" stop-color="#4DD4FF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#4DD4FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowMagenta" cx="100%" cy="15%" r="55%">
+      <stop offset="0" stop-color="#FF4D9B" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#FF4D9B" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Logo tile gradient -->
+    <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D4FF4F"/>
+      <stop offset="1" stop-color="#EBFF78"/>
+    </linearGradient>
+    <!-- "Qualmly" wordmark accent gradient -->
+    <linearGradient id="wordAccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#D4FF4F"/>
+      <stop offset="0.5" stop-color="#EBFF78"/>
+      <stop offset="1" stop-color="#D4FF4F"/>
+    </linearGradient>
+    <!-- Grid pattern -->
+    <pattern id="grid" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#2E2E3E" stroke-width="1" opacity="0.35"/>
+    </pattern>
+    <!-- Glow filter for the wordmark -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base bg -->
+  <rect width="1200" height="1200" fill="#0E0E15"/>
+  <rect width="1200" height="1200" fill="url(#grid)"/>
+  <rect width="1200" height="1200" fill="url(#glowLime)"/>
+  <rect width="1200" height="1200" fill="url(#glowCyan)"/>
+  <rect width="1200" height="1200" fill="url(#glowMagenta)"/>
+
+  <!-- Logo tile + bolt -->
+  <g transform="translate(210, 230)">
+    <rect width="150" height="150" rx="30" fill="url(#logoBg)"/>
+    <path d="M88 20 L32 88 h42 l-18 62 l78 -80 h-40 l12 -62 z" fill="#0E0E15"/>
+  </g>
+
+  <!-- Qualmly wordmark -->
+  <g transform="translate(400, 260)">
+    <text x="0" y="90"
+          font-family="'Syne', 'Arial Black', sans-serif"
+          font-size="140" font-weight="800"
+          fill="#F2F2F5" letter-spacing="-4">Qualm<tspan fill="url(#wordAccent)" filter="url(#neonGlow)">ly</tspan></text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="210" y="500"
+        font-family="'Syne', Arial, sans-serif"
+        font-size="62" font-weight="700"
+        fill="#F2F2F5" letter-spacing="-2">Every qualm,</text>
+  <text x="210" y="580"
+        font-family="'Syne', Arial, sans-serif"
+        font-size="62" font-weight="700"
+        fill="url(#wordAccent)" filter="url(#neonGlow)" letter-spacing="-2">caught before prod.</text>
+
+  <!-- Sub tagline -->
+  <text x="210" y="660"
+        font-family="'DM Mono', monospace"
+        font-size="26" fill="#8A8AA8" letter-spacing="0">
+    AI code audit for Lovable · Bolt · v0 · Cursor · Copilot
+  </text>
+
+  <!-- Standards pills row — mimics the app's severity pills -->
+  <g transform="translate(210, 780)">
+    <!-- OWASP pill (red) -->
+    <rect x="0" y="0" width="170" height="48" rx="24" fill="rgba(255,77,109,0.12)" stroke="rgba(255,77,109,0.35)" stroke-width="1.5"/>
+    <text x="85" y="31" text-anchor="middle" font-family="'DM Mono', monospace" font-size="18" font-weight="700" fill="#FF4D6D">OWASP Top 10</text>
+
+    <!-- CWE pill -->
+    <rect x="186" y="0" width="180" height="48" rx="24" fill="rgba(255,184,0,0.12)" stroke="rgba(255,184,0,0.35)" stroke-width="1.5"/>
+    <text x="276" y="31" text-anchor="middle" font-family="'DM Mono', monospace" font-size="18" font-weight="700" fill="#FFB800">CWE/SANS Top 25</text>
+
+    <!-- WCAG pill -->
+    <rect x="372" y="0" width="140" height="48" rx="24" fill="rgba(91,141,239,0.12)" stroke="rgba(91,141,239,0.35)" stroke-width="1.5"/>
+    <text x="442" y="31" text-anchor="middle" font-family="'DM Mono', monospace" font-size="18" font-weight="700" fill="#5B8DEF">WCAG 2.2</text>
+
+    <!-- 12-Factor pill -->
+    <rect x="518" y="0" width="130" height="48" rx="24" fill="rgba(61,255,160,0.12)" stroke="rgba(61,255,160,0.35)" stroke-width="1.5"/>
+    <text x="583" y="31" text-anchor="middle" font-family="'DM Mono', monospace" font-size="18" font-weight="700" fill="#3DFFA0">12-Factor</text>
+  </g>
+
+  <!-- Vibe-Check preset highlight box -->
+  <g transform="translate(210, 890)">
+    <rect width="780" height="150" rx="16" fill="rgba(212,255,79,0.08)" stroke="rgba(212,255,79,0.35)" stroke-width="1.5"/>
+    <text x="30" y="55" font-family="'DM Mono', monospace" font-size="22" font-weight="700" fill="#D4FF4F" letter-spacing="1.2">
+      🛡  VIBE-CODED APP PRESET
+    </text>
+    <text x="30" y="92" font-family="'DM Mono', monospace" font-size="18" fill="#F2F2F5" letter-spacing="0.3">
+      Missing Supabase RLS · Leaked sk_live_ keys · Exposed /admin
+    </text>
+    <text x="30" y="120" font-family="'DM Mono', monospace" font-size="18" fill="#F2F2F5" letter-spacing="0.3">
+      routes · Unverified Stripe webhooks · CORS misconfig
+    </text>
+  </g>
+
+  <!-- URL footer -->
+  <text x="600" y="1130" text-anchor="middle"
+        font-family="'DM Mono', monospace" font-size="28" font-weight="500"
+        fill="#D4FF4F" letter-spacing="2">qualmly.dev</text>
+</svg>
