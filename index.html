@@ -46,6 +46,16 @@
   .char-counter { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-align: right; margin-top: 4px; min-height: 14px; opacity: 0.7; transition: color 0.15s, opacity 0.15s; }
   .char-counter.warn { color: var(--warn); opacity: 1; }
   .char-counter.full { color: var(--fail); opacity: 1; font-weight: 700; }
+  /* viral share card (Sections BB + CC + DD) — sits above the DarkPixel CTA after a successful scan */
+  .share-card { margin: 28px 0 16px; padding: 18px 20px; background: var(--surface); border: 1px solid rgba(212,255,79,0.20); border-left: 3px solid var(--lime); border-radius: var(--radius); box-shadow: 0 0 32px rgba(212,255,79,0.05); }
+  .share-card-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+  .share-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .share-btn { font-family: 'DM Mono', monospace; font-size: 11px; padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all 0.15s; }
+  .share-btn:hover { transform: translateY(-1px); border-color: var(--lime-dim); }
+  .share-btn-x:hover { color: var(--lime); }
+  .share-btn-li:hover { color: var(--info); }
+  .share-btn-term:hover { color: var(--pass); }
+  .share-btn-badge:hover { color: var(--lime-bright); }
   /* friendly API error card (Section B). Matches code-fix-box: dark bg + lime accent border */
   .api-error-card { background: var(--surface); border: 1px solid rgba(212,255,79,0.35); border-left: 3px solid var(--lime); border-radius: var(--radius); padding: 22px 24px; margin: 24px auto; max-width: 560px; box-shadow: 0 0 24px rgba(212,255,79,0.10); }
   .api-error-card .ae-headline { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
@@ -405,6 +415,10 @@
       <button class="mode-tab active" id="tab-qa" onclick="switchMode('qa')">&#9889; App QA</button>
       <button class="mode-tab" id="tab-code" onclick="switchMode('code')">&#128196; Code Review</button>
     </div>
+    <!-- Section GG: domain verification banner — populated by _renderDomainBanner() -->
+    <span id="domain-banner" style="display:none"></span>
+    <!-- Section EE: API key fingerprint badge — visible whenever a key is loaded -->
+    <span id="api-key-fingerprint" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:4px 10px;border-radius:20px;align-items:center;gap:6px;cursor:default" title="Fingerprint of the API key currently loaded in this session"></span>
     <button class="nav-gear" id="nav-gear-btn" onclick="openPrefs()" title="Preferences" aria-label="Preferences">&#9881;</button>
   </nav>
 
@@ -481,6 +495,10 @@
       </div>
       <div id="error-msg" class="error-box"></div>
       <button class="cta-btn" id="check-btn" onclick="runCheck()">&#9889; Run QA Check &mdash; it's free</button>
+      <!-- Section AA: Try-demo entry. No API key required, loads a hardcoded example report. -->
+      <button type="button" id="try-demo-btn" onclick="loadDemoReport()" style="margin-top:10px;width:100%;background:transparent;border:1px dashed var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s">
+        &#128064; Try a live demo report &mdash; no API key needed
+      </button>
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
     </div>
     <div class="proof-row">
@@ -842,6 +860,18 @@
     <div class="tests-grid" id="tests-grid"></div>
     <div id="cost-footer"></div>
 
+    <!-- Sections BB + CC + DD: viral-share card. Three actions, one row. Populated by renderShareCard() -->
+    <div id="share-card" class="share-card slide-in-delay2" style="display:none">
+      <div class="share-card-title">&#127881; Got a score worth flexing? Share it.</div>
+      <div class="share-card-actions">
+        <button class="share-btn share-btn-x" onclick="shareReportToX()" title="Open X with a pre-filled tweet">&#10550; Share to X</button>
+        <button class="share-btn share-btn-li" onclick="shareReportToLinkedIn()" title="Open LinkedIn share dialog">in&nbsp;&nbsp;Share to LinkedIn</button>
+        <button class="share-btn share-btn-term" onclick="copyTerminalSummary()" title="Copy a Fireship-aesthetic ASCII summary to your clipboard">&#128187; Copy as terminal</button>
+        <button class="share-btn share-btn-badge" onclick="copyReadmeBadge()" title="Copy a markdown badge for your GitHub README">&#127894; Copy README badge</button>
+      </div>
+      <div id="share-card-feedback" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--pass);margin-top:8px;min-height:14px"></div>
+    </div>
+
     <!-- DarkPixel Consulting Inc. CTA replaces share button -->
     <a class="darkpixel-row slide-in-delay2" href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener noreferrer">
       <div class="darkpixel-left">
@@ -941,6 +971,14 @@ function resetApp() {
   document.getElementById("error-msg").style.display = "none";
   document.getElementById("check-btn").disabled = false;
   document.getElementById("shared-banner").classList.remove("visible");
+  // Reset shared-banner copy back to the default in case the demo overrode it
+  const sb = document.getElementById("shared-banner");
+  if (sb) {
+    const span = sb.querySelector("span:nth-of-type(2)");
+    if (span) span.textContent = "You're viewing a shared Qualmly report"; // AUDITED-SAFE: textContent
+  }
+  if (typeof _renderShareCard === "function") _renderShareCard(false); // Sections BB+CC+DD
+  _lastQaReport = null;
   history.replaceState(null, "", window.location.pathname + window.location.search);
   showScreen("input-screen");
 }
@@ -1186,17 +1224,82 @@ function renderReport(data, url, savedDateStr, isShared) {
   // Cost footer
   renderCostFooter("cost-footer", data._usage, "claude-sonnet-4-6");
 
+  // Sections BB+CC+DD: capture state + show share card
+  _lastQaReport = { data, url, dateStr };
+  _renderShareCard(true);
+
   showScreen("report");
 
   if (isShared) {
     document.getElementById("shared-banner").classList.add("visible");
-  } else {
+  } else if (!data._isDemo) {
+    // Don't pollute the URL hash with the example report
     const encoded = encodeReportToHash(data, url, dateStr);
     history.replaceState(null, "", "#r=" + encoded);
   }
 }
 
 function toggleCard(card) { card.classList.toggle("open"); }
+
+// ── Section AA: Live demo report (no API key required) ────────────────────
+// Hardcoded example based on real public-recon findings on matchwise.app.
+// Loads via the same renderReport() pipeline as a real scan, so the demo and
+// real product are visually identical. First-time visitors see the full UX
+// before deciding whether to grab an API key.
+const EXAMPLE_REPORT = {
+  crawled: true,
+  score: 62,
+  summary: "<strong>matchwise.app</strong> ships the AI ATS pattern most prone to RLS gaps: a Supabase project URL + anon key in the bundle, multiple admin RPC calls, and a wide auth provider surface. The bundle is also dragging dev artefacts to prod (23 console.logs, .env strings, fake Stripe keys). Triage the database side first — that's the blast-radius surface.",
+  _builder: "lovable",
+  _usage: { input_tokens: 14200, output_tokens: 3950 },
+  _isDemo: true,
+  categories: [
+    { id: "auth", name: "Auth & access control", status: "Fail", issues: [
+      { text: "[AI-code]: signInWithSolana and signInWithEthereum enabled by default — neither is needed for an ATS, both widen the attack surface", severity: "fail" },
+      { text: "[AI-code]: Supabase anon key shipped in client bundle (expected) but no proof of RLS posture on candidate tables", severity: "fail" },
+      { text: "Multi-provider auth (password + OTP + SAML + Web3) without explicit user-side toggle to disable unused providers", severity: "warn" }
+    ], recommendation: "Audit every Supabase RLS policy on candidate tables with a pgTAP-style test using a freshly-created non-admin account. Disable Solana/Ethereum providers in Supabase Auth settings.", codeFix: "// Fix: explicit role check inside the RPC body\nCREATE OR REPLACE FUNCTION move_candidate_stage(c_id uuid, new_stage text)\nRETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'recruiter') THEN\n    RAISE EXCEPTION 'unauthorized';\n  END IF;\n  UPDATE candidates SET stage = new_stage WHERE id = c_id;\nEND;\n$$;", builderFixPrompt: "In Supabase, audit every RPC function on candidates and applications tables. For each one, add a role check at the top that raises 'unauthorized' if auth.uid() isn't in user_roles with role 'admin' or 'recruiter'. Also disable signInWithSolana and signInWithEthereum in the Auth providers settings — this is an ATS, we don't need crypto wallet auth." },
+    { id: "data", name: "Data persistence & state", status: "Warn", issues: [
+      { text: "[AI-code]: .env, TODO, XXX strings shipped in production JS bundle", severity: "warn" },
+      { text: "23 console.log statements in production bundle", severity: "info" },
+      { text: "Mock Stripe keys (sk_live_abc123...) embedded as UI placeholder values — will trip every CI secret scanner", severity: "warn" }
+    ], recommendation: "Add vite-plugin-remove-console + replace fake-Stripe-key UI placeholders with masked patterns that don't match Stripe's regex.", codeFix: "// vite.config.js\nimport removeConsole from 'vite-plugin-remove-console';\nexport default defineConfig({\n  plugins: [react(), removeConsole({ includes: ['log','debug','info'] })]\n});", builderFixPrompt: "Add vite-plugin-remove-console to vite.config.js. In the API Keys admin UI, replace placeholder strings like 'sk_live_abc123def456ghi789xyz' with format-safe masks like 'sk_live_•••••••••••••xyz' that won't trigger automated Stripe-key scanners." },
+    { id: "errors", name: "Error handling & edge cases", status: "Warn", issues: [
+      { text: "No visible error boundaries around React routes", severity: "warn" },
+      { text: "Network errors during candidate-stage moves probably surface as raw Supabase error strings", severity: "warn" }
+    ], recommendation: "Wrap each route in an ErrorBoundary that reports to your error tracker and renders a friendly recovery card.", codeFix: "<ErrorBoundary fallback={<RecoveryCard onReset={reset} />}>\n  <CandidateBoard />\n</ErrorBoundary>", builderFixPrompt: "Wrap every page-level route in src/App.jsx with an ErrorBoundary. The fallback should be a card with the error type, a Retry button, and a Copy details button. Don't leak raw Postgres error messages to users." },
+    { id: "responsive", name: "Mobile responsiveness", status: "Pass", issues: [
+      { text: "Tailwind breakpoints look complete on the marketing surface", severity: "pass" },
+      { text: "Recruiter dashboard touch targets need verification on actual phones", severity: "info" }
+    ], recommendation: "Test the candidate-pipeline drag-and-drop on a real iPhone with one hand. Most ATS UIs assume mouse precision.", codeFix: "// Tailwind: ensure 44x44px minimum touch target for drag handles\n<div className=\"min-h-[44px] min-w-[44px] touch-manipulation cursor-grab\">", builderFixPrompt: "On the candidate pipeline, make every drag handle at least 44x44px and add touch-manipulation. Test the drag-and-drop on a real iPhone before shipping." },
+    { id: "performance", name: "Performance basics", status: "Warn", issues: [
+      { text: "3.6 MB JavaScript bundle — one of the largest in the AI-built apps we've seen", severity: "warn" },
+      { text: "No evidence of code splitting on admin routes", severity: "warn" }
+    ], recommendation: "Dynamic-import the admin pages so non-admin users never download admin code.", codeFix: "// Dynamic import + Suspense\nconst AdminUsers = lazy(() => import('./pages/AdminUsers'));\n<Suspense fallback={<Loading />}>\n  <Route path=\"/admin/users\" element={<AdminUsers />} />\n</Suspense>", builderFixPrompt: "Code-split every page under /admin into its own dynamic import using React.lazy. Wrap the admin route tree in <Suspense fallback={<Loading />}>." },
+    { id: "navigation", name: "Navigation & routing", status: "Pass", issues: [
+      { text: "Routes resolve cleanly; no 404 redirect oddities", severity: "pass" }
+    ], recommendation: "No action.", codeFix: "// No fix required for this category", builderFixPrompt: "" },
+    { id: "forms", name: "Form handling & validation", status: "Warn", issues: [
+      { text: "Resume upload accepts arbitrary file types — verify server-side scan + size limit", severity: "warn" }
+    ], recommendation: "Constrain accepted MIME types client-side AND verify server-side. Add a virus scan if you store uploads long-term.", codeFix: "<input type=\"file\" accept=\".pdf,.doc,.docx\" onChange={validateAndUpload} />", builderFixPrompt: "Lock the resume upload to .pdf/.doc/.docx only. On the Supabase Edge Function that accepts uploads, verify MIME via the magic bytes (not the extension) and enforce a 10MB limit. Reject anything else." },
+    { id: "a11y", name: "Accessibility (WCAG 2.2)", status: "Pass", issues: [
+      { text: "Radix UI baseline gives reasonable a11y by default", severity: "pass" },
+      { text: "Focus trap on modals not verified — keyboard-only users can sometimes escape", severity: "info" }
+    ], recommendation: "Verify modal focus-trap with keyboard-only navigation across the candidate-detail dialog.", codeFix: "// Radix Dialog handles focus-trap; double-check by keyboard-tabbing\n// through every modal in the app", builderFixPrompt: "Manual QA: tab through every dialog in the app with keyboard only. Make sure focus stays trapped inside until Esc or close." }
+  ]
+};
+
+function loadDemoReport() {
+  // Render the example via the real pipeline, with the same shared-banner UI we'd
+  // show on a hash-shared report. The user can dismiss + run their own scan.
+  renderReport(EXAMPLE_REPORT, "https://matchwise.app", null, true);
+  // Replace the shared-banner copy so it reads as a demo, not a third-party share.
+  const sb = document.getElementById("shared-banner");
+  if (sb) {
+    const span = sb.querySelector("span:nth-of-type(2)");
+    if (span) span.textContent = "You're viewing a Qualmly demo report on a real public app. Run yours next."; // AUDITED-SAFE: textContent
+  }
+}
 
 async function runCheck() {
   const url = document.getElementById("url").value.trim();
@@ -1790,6 +1893,7 @@ function clearApiKey() {
   try { localStorage.removeItem("vc_api_key"); } catch(e) {}
   try { localStorage.removeItem("vc_api_key_encrypted"); } catch(e) {}
   try { sessionStorage.removeItem("vc_api_key"); } catch(e) {}
+  if (typeof _renderApiKeyFingerprint === "function") _renderApiKeyFingerprint(); // Section EE
 }
 
 // ── Section V: tab title status during long-running operations ─────────────
@@ -1806,11 +1910,155 @@ function _setTabStatus(state) {
   }
 }
 
+// ── Sections BB + CC + DD: viral share helpers ─────────────────────────────
+// Reads the most recent App-QA report state (window-scoped via _lastQaReport,
+// which renderReport sets) plus the shared-URL hash so each share carries a link
+// the recipient can open. All four actions are pure window.open or
+// navigator.clipboard — no API calls, no cost.
+let _lastQaReport = null; // { data, url, dateStr }
+
+function _shareCardData() {
+  if (!_lastQaReport) return null;
+  const { data, url } = _lastQaReport;
+  const score = typeof data.score === "number" ? data.score : 0;
+  let nFail = 0, nWarn = 0, nPass = 0;
+  (data.categories || []).forEach(c => {
+    const s = (c.status || "").toLowerCase();
+    if (s === "fail" || s === "failed") nFail++;
+    else if (s === "warn" || s === "warning") nWarn++;
+    else nPass++;
+  });
+  const topFinding = (() => {
+    for (const c of (data.categories || [])) {
+      if ((c.status || "").toLowerCase().startsWith("fail")) {
+        const issue = (c.issues || []).find(i => (i.severity || "").toLowerCase() === "fail");
+        if (issue) return issue.text || c.recommendation || "";
+      }
+    }
+    return (data.summary || "").replace(/<[^>]*>/g, "").slice(0, 140);
+  })();
+  let domain = url;
+  try { domain = new URL(url).hostname; } catch(e) {}
+  return { score, nFail, nWarn, nPass, topFinding, domain, url, fullUrl: location.href };
+}
+
+function shareReportToX() {
+  const d = _shareCardData(); if (!d) return;
+  const text = "Just audited " + d.domain + " with @qualmly_dev — " + d.score + "/100. " +
+    (d.nFail ? d.nFail + " critical issue" + (d.nFail === 1 ? "" : "s") + " surfaced. " : "") +
+    "Scan yours: ";
+  const target = "https://x.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent("https://qualmly.dev?utm_source=x_share&utm_medium=user_share");
+  window.open(target, "_blank", "noopener,noreferrer");
+  _flashShareFeedback("Opened X with your tweet pre-filled");
+}
+
+function shareReportToLinkedIn() {
+  const d = _shareCardData(); if (!d) return;
+  const target = "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent("https://qualmly.dev?utm_source=linkedin_share&utm_medium=user_share");
+  window.open(target, "_blank", "noopener,noreferrer");
+  _flashShareFeedback("Opened LinkedIn share dialog");
+}
+
+function copyTerminalSummary() {
+  const d = _shareCardData(); if (!d) return;
+  // Build the score bar: 10 chars, filled proportionally
+  const filled = Math.max(0, Math.min(10, Math.round(d.score / 10)));
+  const bar = "█".repeat(filled) + "░".repeat(10 - filled);
+  const lines = [
+    "QUALMLY ── " + d.domain,
+    "─────────────────────────────",
+    "Score   " + d.score + "/100  " + bar,
+    "Critical " + d.nFail + "  Warning " + d.nWarn + "  Pass " + d.nPass,
+    "Top: " + (d.topFinding || "n/a").slice(0, 90),
+    "qualmly.dev"
+  ];
+  const text = lines.join("\n");
+  navigator.clipboard.writeText(text)
+    .then(() => _flashShareFeedback("✓ Terminal summary copied — paste anywhere"))
+    .catch(() => _flashShareFeedback("Couldn't copy — your browser blocked clipboard access"));
+}
+
+function copyReadmeBadge() {
+  const d = _shareCardData(); if (!d) return;
+  // Score-coloured shields.io badge. Lime (>=75), amber (50-74), red (<50).
+  const color = d.score >= 75 ? "D4FF4F" : d.score >= 50 ? "FFB800" : "FF4D6D";
+  const md = "[![Audited by Qualmly](https://img.shields.io/badge/audited_by-qualmly_" + d.score + "%2F100-" + color + "?style=flat-square&labelColor=0C0C10)](https://qualmly.dev?utm_source=readme_badge&utm_medium=embed)";
+  navigator.clipboard.writeText(md)
+    .then(() => _flashShareFeedback("✓ Markdown badge copied — paste in your README.md"))
+    .catch(() => _flashShareFeedback("Couldn't copy — your browser blocked clipboard access"));
+}
+
+function _flashShareFeedback(msg) {
+  const el = document.getElementById("share-card-feedback");
+  if (!el) return;
+  el.textContent = msg; // AUDITED-SAFE: textContent
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 4500);
+}
+
+function _renderShareCard(showIt) {
+  const card = document.getElementById("share-card");
+  if (!card) return;
+  card.style.display = showIt ? "block" : "none";
+  const fb = document.getElementById("share-card-feedback");
+  if (fb) fb.textContent = "";
+}
+
+// ── Section GG: Domain verification banner ──────────────────────────────────
+// Visualizes the URL the user is on. Three states:
+//   1. qualmly.dev (production)            — small "✓ qualmly.dev verified" pill
+//   2. localhost / 127.0.0.1 / file://     — "⚠ Self-hosted copy" pill (not a phishing risk, just informational)
+//   3. anything else                        — RED "⚠ Unrecognised domain" banner (this is the phishing case)
+// Note: a real phishing clone could disable this JS. The protection here is for
+// users who DO have JS running and DO see the banner — combined with the URL
+// warning in the API-key modal, this catches the careful-but-tired user.
+const QUALMLY_KNOWN_HOSTS = new Set(["qualmly.dev", "www.qualmly.dev"]);
+const QUALMLY_LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", ""]);
+function _renderDomainBanner() {
+  if (typeof location === "undefined") return;
+  const host = (location.hostname || "").toLowerCase();
+  const banner = document.getElementById("domain-banner");
+  if (!banner) return;
+  if (QUALMLY_KNOWN_HOSTS.has(host)) {
+    banner.style.cssText = "display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--pass);background:var(--pass-bg);border:1px solid rgba(61,255,160,0.35);padding:3px 10px;border-radius:20px;margin-left:8px";
+    banner.innerHTML = "&#10003; qualmly.dev verified"; // AUDITED-SAFE: static HTML
+  } else if (QUALMLY_LOCAL_HOSTS.has(host) || location.protocol === "file:") {
+    banner.style.cssText = "display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:20px;margin-left:8px";
+    banner.innerHTML = "&#127968; Self-hosted copy"; // AUDITED-SAFE: static HTML
+  } else {
+    banner.style.cssText = "display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--fail);background:var(--fail-bg);border:1px solid rgba(255,77,109,0.45);padding:3px 10px;border-radius:20px;margin-left:8px;font-weight:700";
+    // AUDITED-SAFE: hostname is escaped; structural HTML is static
+    banner.innerHTML = "&#9888; Unrecognised domain: " + escapeHtml(host) + " — verify before pasting your API key";
+  }
+}
+
+// ── Section EE: API key fingerprint helper ──────────────────────────────────
+// Returns "sk-ant-...A1B2" — first 7 chars + last 4. Lets the user verify the
+// active key matches what they pasted (defence against silent swap by injected JS).
+function _apiKeyFingerprint(k) {
+  if (!k || typeof k !== "string" || k.length < 12) return "";
+  return k.slice(0, 7) + "…" + k.slice(-4);
+}
+
+function _renderApiKeyFingerprint() {
+  const el = document.getElementById("api-key-fingerprint");
+  if (!el) return;
+  const k = (typeof _memKey !== "undefined" && _memKey) ||
+            (typeof localStorage !== "undefined" && localStorage.getItem("vc_api_key")) ||
+            (typeof sessionStorage !== "undefined" && sessionStorage.getItem("vc_api_key")) ||
+            null;
+  if (k) {
+    el.textContent = "Active key: " + _apiKeyFingerprint(k); // AUDITED-SAFE: textContent
+    el.style.display = "inline-flex";
+  } else {
+    el.style.display = "none";
+  }
+}
+
 // ── Section X: build version stamp ──────────────────────────────────────────
 // BUILD_VERSION is updated by the deploy script (or hand-bumped) on each release.
 // Renders in the footer for bug reports — gives reviewers a way to tell us "I saw
 // X behavior on build Y" instead of a vague timeline reference.
-const QUALMLY_BUILD = { version: "v1.1.0", date: "2026-04-24", channel: "stable" };
+const QUALMLY_BUILD = { version: "v1.2.0", date: "2026-05-01", channel: "stable" };
 
 // ── Section S: Anthropic API retry + offline guard ─────────────────────────
 // Wrap a fetch in: (1) navigator.onLine check before send, (2) one automatic
@@ -2165,6 +2413,7 @@ async function submitApiKey() {
   document.getElementById("api-modal").classList.remove("show");
   if (err) err.style.display = "none";
   if (encPass) encPass.value = "";
+  if (typeof _renderApiKeyFingerprint === "function") _renderApiKeyFingerprint(); // Section EE
   const cb = _pendingAfterApiKey;
   _pendingAfterApiKey = null;
   if (typeof cb === "function") cb();
@@ -2199,6 +2448,7 @@ async function unlockApiKey() {
     err.style.display = "none";
     document.getElementById("api-modal").classList.remove("show");
     if (btn && originalLabel !== null) { btn.disabled = false; btn.innerHTML = originalLabel; } // AUDITED-SAFE: restoring saved label
+    if (typeof _renderApiKeyFingerprint === "function") _renderApiKeyFingerprint(); // Section EE
     const cb = _pendingAfterApiKey;
     _pendingAfterApiKey = null;
     if (typeof cb === "function") cb();
@@ -2604,6 +2854,68 @@ let _crLastData = null;
 let _crLastMeta = null;
 let _crHeartbeatTimer = null; // Section D: cleared on success/error of runCodeReview
 
+// \u2500\u2500 Section FF: Pasted-code secret detection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Scans the user's pasted code for real-looking API keys/tokens before sending
+// to Anthropic. If any are found, blocks the submit and offers a one-click
+// Auto-strip that replaces them with [REDACTED]. This is the biggest security
+// foot-shot Code Review users can take \u2014 pasting their own .env by accident.
+const SECRET_PATTERNS = [
+  { name: "Anthropic API key", re: /sk-ant-[A-Za-z0-9_-]{40,}/g },
+  { name: "OpenAI API key", re: /sk-[A-Za-z0-9_-]{40,}/g },
+  { name: "Stripe secret key", re: /sk_(?:live|test)_[A-Za-z0-9]{24,}/g },
+  { name: "AWS access key ID", re: /AKIA[A-Z0-9]{16}/g },
+  { name: "GitHub fine-grained PAT", re: /github_pat_[A-Za-z0-9_]{40,}/g },
+  { name: "GitHub classic token", re: /ghp_[A-Za-z0-9]{30,}/g },
+  { name: "Slack bot token", re: /xoxb-[0-9]{8,}-[0-9]{8,}-[A-Za-z0-9]{20,}/g },
+  { name: "Google API key", re: /AIzaSy[A-Za-z0-9_-]{33}/g },
+  { name: "Supabase service-role JWT", re: /eyJ[A-Za-z0-9_-]{30,}\.eyJ[A-Za-z0-9_-]{60,}\.[A-Za-z0-9_-]{20,}/g }
+];
+
+function _scanForSecrets(text) {
+  // Returns array of { kind, match, count } \u2014 empty array means clean.
+  const findings = [];
+  for (const p of SECRET_PATTERNS) {
+    const matches = text.match(p.re);
+    if (matches && matches.length) {
+      findings.push({ kind: p.name, sample: matches[0].slice(0, 12) + "\u2026", count: matches.length });
+    }
+  }
+  return findings;
+}
+
+function _redactSecrets(text) {
+  // Returns a copy of text with every matched secret replaced by [REDACTED].
+  // Each pattern uses a fresh regex via the constructor to avoid global-flag
+  // lastIndex state-bleed between calls.
+  let out = text;
+  for (const p of SECRET_PATTERNS) {
+    out = out.replace(new RegExp(p.re.source, "g"), "[REDACTED]");
+  }
+  return out;
+}
+
+function _autoStripPastedSecrets() {
+  // Apply redaction to every code file in the editor + sync the visible textarea.
+  for (const f of codeFiles) {
+    if (f.content) f.content = _redactSecrets(f.content);
+  }
+  ensureCurrentFileCached();
+  const ta = document.getElementById("code-input");
+  if (ta) ta.value = (codeFiles[currentFileIdx] && codeFiles[currentFileIdx].content) || "";
+  const errEl = document.getElementById("code-error-msg");
+  if (errEl) {
+    errEl.style.display = "block";
+    errEl.style.color = "var(--pass)";
+    errEl.style.borderColor = "rgba(61,255,160,0.35)";
+    errEl.style.background = "var(--pass-bg)";
+    errEl.textContent = "\u2713 Auto-stripped. The code now reads [REDACTED] where keys used to be \u2014 safe to send.";
+    setTimeout(() => {
+      errEl.style.display = "none";
+      errEl.style.color = ""; errEl.style.borderColor = ""; errEl.style.background = "";
+    }, 4000);
+  }
+}
+
 async function runCodeReview() {
   ensureCurrentFileCached();
   const langSel = document.getElementById("code-lang");
@@ -2621,7 +2933,34 @@ async function runCodeReview() {
     errEl.textContent = "\u26A0 A quick one-liner about what the code does helps (10+ chars).";
     return;
   }
+
+  // Section FF: scan every file for real-looking secrets BEFORE sending.
+  const allCode = codeFiles.map(f => f.content || "").join("\n\n");
+  const secretFindings = _scanForSecrets(allCode);
+  if (secretFindings.length) {
+    const list = secretFindings.map(f => " - " + f.kind + " (" + f.count + "\u00D7 detected, e.g. " + f.sample + ")").join("\n");
+    const proceed = confirm(
+      "\u26A0 Your pasted code contains what looks like real secret keys:\n\n" + list +
+      "\n\nIf you click OK, these will be sent to Anthropic's API as-is. " +
+      "Click Cancel to stop, then click \"Auto-strip\" in the form to replace them with [REDACTED] before re-running."
+    );
+    if (!proceed) {
+      errEl.style.display = "block";
+      errEl.style.color = "var(--warn)";
+      errEl.style.borderColor = "rgba(255,184,0,0.35)";
+      errEl.style.background = "var(--warn-bg)";
+      // AUDITED-SAFE: list is built from internal SECRET_PATTERNS metadata + integer counts;
+      // only the .sample is from user input but truncated and not re-rendered as HTML attrs
+      errEl.innerHTML = "&#9888; Detected what looks like real secret keys in your code. Click <button id=\"strip-secrets-btn\" style=\"font-family:'DM Mono',monospace;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--pass);background:var(--pass-bg);color:var(--pass);cursor:pointer;font-weight:700;margin-left:6px\">Auto-strip secrets</button> to replace them with [REDACTED] before sending.";
+      const btn = document.getElementById("strip-secrets-btn");
+      if (btn) btn.addEventListener("click", _autoStripPastedSecrets);
+      console.warn("[qualmly] Code Review blocked \u2014 pasted code contains likely secrets:", secretFindings.map(f => f.kind).join(", "));
+      return;
+    }
+    console.warn("[qualmly] Code Review proceeding with secrets in payload \u2014 user confirmed.");
+  }
   errEl.style.display = "none";
+  errEl.style.color = ""; errEl.style.borderColor = ""; errEl.style.background = "";
 
   const apiKey = requireApiKeyFor(runCodeReview);
   if (!apiKey) return;
@@ -3379,6 +3718,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Section X: render build stamp in footer
   const stamp = document.getElementById("qualmly-build-stamp");
   if (stamp) stamp.textContent = "Build " + QUALMLY_BUILD.version + " · " + QUALMLY_BUILD.date + " · " + QUALMLY_BUILD.channel; // AUDITED-SAFE: textContent
+  // Section EE: render API key fingerprint badge if a key is already cached this session
+  _renderApiKeyFingerprint();
+  // Section GG: render domain banner
+  _renderDomainBanner();
 });
 
 document.addEventListener("keydown", e => {
