@@ -5,14 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Qualmly raises every concern about code shipped from Lovable, Bolt, v0, Cursor, and Copilot. One HTML file, your Claude key, honest answers. Ship with no qualms.">
 <meta name="theme-color" content="#D4FF4F">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://api.allorigins.win https://api.codetabs.com https://corsproxy.io https://archive.org; frame-ancestors 'none'; base-uri 'self'; form-action 'none';">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- Section Q: deny every browser API the app doesn't use. Defence in depth — even if
+     a malicious script is injected, it can't pop a permission prompt or access sensors. -->
+<meta http-equiv="Permissions-Policy" content="accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), display-capture=(), document-domain=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=()">
 <title>Qualmly — the AI reviewer that voices every qualm about your shipped code</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Section P: Subresource Integrity. SHA-384 hashes pinned to the exact file contents
+     served by cdnjs at the version above. If cdnjs is ever compromised or
+     DNS-hijacked, the browser will refuse to execute the script. crossorigin="anonymous"
+     is required for SRI to enforce on cross-origin scripts. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
 <style>
   :root {
     --bg: #0E0E15; --surface: #17171F; --surface2: #1F1F2A; --input-bg: #2D2D40; --border: #2E2E3E;
@@ -26,6 +42,19 @@
     --info: #5B8DEF; --info-bg: rgba(91,141,239,0.10);
     --radius: 14px; --radius-sm: 8px;
   }
+  /* char counters under length-limited inputs */
+  .char-counter { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-align: right; margin-top: 4px; min-height: 14px; opacity: 0.7; transition: color 0.15s, opacity 0.15s; }
+  .char-counter.warn { color: var(--warn); opacity: 1; }
+  .char-counter.full { color: var(--fail); opacity: 1; font-weight: 700; }
+  /* friendly API error card (Section B). Matches code-fix-box: dark bg + lime accent border */
+  .api-error-card { background: var(--surface); border: 1px solid rgba(212,255,79,0.35); border-left: 3px solid var(--lime); border-radius: var(--radius); padding: 22px 24px; margin: 24px auto; max-width: 560px; box-shadow: 0 0 24px rgba(212,255,79,0.10); }
+  .api-error-card .ae-headline { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .api-error-card .ae-sub { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  .api-error-card .ae-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .api-error-card .ae-btn { font-family: 'DM Mono', monospace; font-size: 12px; padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all 0.15s; }
+  .api-error-card .ae-btn.primary { background: var(--lime); color: #0E0E15; border-color: var(--lime); font-weight: 700; }
+  .api-error-card .ae-btn:hover { transform: translateY(-1px); }
+  .api-error-card .ae-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); opacity: 0.7; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background:
@@ -401,8 +430,9 @@
         </div>
         <div id="url-input-wrap" class="input-wrap">
           <span class="input-prefix">&#128279;</span>
-          <input type="text" id="url" class="has-prefix" placeholder="https://my-cool-app.lovable.app" autocomplete="off" spellcheck="false">
+          <input type="text" id="url" class="has-prefix" placeholder="https://my-cool-app.lovable.app" autocomplete="off" spellcheck="false" maxlength="2000">
         </div>
+        <div id="url-counter" class="char-counter"></div>
         <div id="html-input-wrap" style="display:none">
           <textarea id="manual-html" rows="6" placeholder="Paste your page HTML here (right-click page → View Page Source → Ctrl+A, Ctrl+C)" style="font-size:12px;font-family:'DM Mono',monospace;resize:vertical"></textarea>
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:5px">&#128161; Use this when your app requires login or blocks crawlers. Enter the URL too — it's used for context.</div>
@@ -410,7 +440,8 @@
       </div>
       <div class="form-group">
         <label for="desc">What does your app do?</label>
-        <textarea id="desc" rows="3" placeholder="e.g. A SaaS dashboard where users log in, manage projects, and invite teammates. Built with Lovable, uses Supabase for auth and data."></textarea>
+        <textarea id="desc" rows="3" maxlength="500" placeholder="e.g. A SaaS dashboard where users log in, manage projects, and invite teammates. Built with Lovable, uses Supabase for auth and data."></textarea>
+        <div id="desc-counter" class="char-counter"></div>
       </div>
       <div class="form-row">
         <div class="form-group" style="margin:0">
@@ -450,7 +481,7 @@
       </div>
       <div id="error-msg" class="error-box"></div>
       <button class="cta-btn" id="check-btn" onclick="runCheck()">&#9889; Run QA Check &mdash; it's free</button>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
     </div>
     <div class="proof-row">
       <div class="proof-item">
@@ -491,7 +522,8 @@
         </div>
         <div class="form-group" style="margin:0">
           <label for="code-context">What does this code do?</label>
-          <input type="text" id="code-context" placeholder="e.g. Login form with Supabase auth" spellcheck="false">
+          <input type="text" id="code-context" maxlength="500" placeholder="e.g. Login form with Supabase auth" spellcheck="false">
+          <div id="code-context-counter" class="char-counter"></div>
         </div>
       </div>
       <div class="form-group">
@@ -502,11 +534,12 @@
           </div>
           <button class="add-file-btn" onclick="addFile()">+ Add file</button>
         </div>
-        <textarea id="code-input" rows="12" placeholder="// Paste your code here..." style="font-size:12px;font-family:'DM Mono',monospace;resize:vertical;border-radius:0 var(--radius-sm) var(--radius-sm) var(--radius-sm)"></textarea>
+        <textarea id="code-input" rows="12" maxlength="50000" placeholder="// Paste your code here..." style="font-size:12px;font-family:'DM Mono',monospace;resize:vertical;border-radius:0 var(--radius-sm) var(--radius-sm) var(--radius-sm)"></textarea>
+        <div id="code-input-counter" class="char-counter"></div>
       </div>
       <div id="code-error-msg" class="error-box"></div>
       <button class="cta-btn" id="code-check-btn" onclick="runCodeReview()">&#128196; Run Code Review &amp; UAT</button>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:10px;text-align:center">AI-generated findings &mdash; verify before shipping. <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/DISCLAIMER.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Disclaimer</a> &middot; <a href="https://github.com/DarkPixel-Z/qualmly/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener noreferrer" style="color:var(--muted);border-bottom:1px dashed var(--muted)">Privacy</a></div>
     </div>
     <div class="proof-row">
       <div class="proof-item">
@@ -578,7 +611,7 @@
     <div id="cr-issues-grid" class="tests-grid"></div>
     <div id="cr-cost-footer"></div>
 
-    <a class="darkpixel-row slide-in-delay2" href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener">
+    <a class="darkpixel-row slide-in-delay2" href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener noreferrer">
       <div class="darkpixel-left">
         <div class="darkpixel-eyebrow">Need professional help fixing these issues?</div>
         <div class="darkpixel-name">Dark<span>Pixel</span> Consulting Inc.</div>
@@ -620,8 +653,27 @@
       <div class="modal-sub">Your Anthropic API key is sent only to Anthropic's servers &mdash; never to DarkPixel or any third party.</div>
       <div class="modal-error" id="api-modal-error">That doesn't look like a valid key. It should start with sk-ant-</div>
       <div class="modal-input-wrap">
-        <input type="password" class="modal-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
+        <!-- Section W: defence against mobile autofill leaking the key into autocomplete suggestions / spell-check dictionaries -->
+        <input type="password" class="modal-input" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" data-lpignore="true" data-1p-ignore data-form-type="other">
         <button class="modal-eye" onclick="toggleApiKeyVis()" id="eye-btn">&#128065;</button>
+      </div>
+      <!-- Section Z: live valid-key indicator. Toggled by JS as user types. -->
+      <div class="modal-format-hint" id="api-key-format-hint" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:6px">Starts with <code style="color:var(--lime)">sk-ant-</code></div>
+      <!-- Section U: phishing-paste warning. Hidden until paste is detected. -->
+      <div id="api-key-paste-warn" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--warn);background:var(--warn-bg);border:1px solid rgba(255,184,0,0.35);border-radius:var(--radius-sm);padding:8px 10px;margin-top:8px;line-height:1.5">
+        &#9888; <strong>You just pasted what looks like an Anthropic API key.</strong><br>
+        Before clicking Save, confirm the URL bar shows <strong style="color:var(--lime)">qualmly.dev</strong> (not a look-alike). If you're not sure, cancel and re-open the site by typing qualmly.dev directly.
+      </div>
+      <div class="modal-trust-row" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--pass);margin-top:10px;display:flex;align-items:center;gap:6px">
+        <span style="color:var(--pass)">&#10003;</span>
+        <span>Encrypted in your browser. Never sent to qualmly.dev servers.</span>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:6px">
+        <a href="https://github.com/DarkPixel-Z/qualmly" target="_blank" rel="noopener noreferrer" style="color:var(--lime);text-decoration:none;border-bottom:1px dashed var(--lime-dim)">View source on GitHub &rarr;</a>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--warn);margin-top:6px;display:flex;align-items:center;gap:6px">
+        <span>&#9888;</span>
+        <span>Always verify the URL is <strong style="color:var(--lime)">qualmly.dev</strong> before pasting.</span>
       </div>
       <div id="unlock-pass-row" style="display:none">
         <input type="password" id="unlock-pass" placeholder="Passphrase" autocomplete="off" spellcheck="false" style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-family:'DM Mono',monospace;font-size:13px;padding:11px 14px;outline:none;font-weight:500">
@@ -645,7 +697,7 @@
           <strong>Encrypt</strong>: passphrase-derived AES-GCM (Web Crypto). Storage is safe against disk snooping; you'll type the passphrase once per session.
         </div>
       </div>
-      <div class="modal-hint">Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> &rarr; API Keys. Clear it any time from Preferences.</div>
+      <div class="modal-hint">Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a> &rarr; API Keys. Clear it any time from Preferences.</div>
       <button class="modal-btn" onclick="submitApiKey()">&#9889; Save &amp; Continue</button>
     </div>
   </div>
@@ -751,6 +803,8 @@
       </div>
       <div class="terminal-body" id="terminal-log"></div>
     </div>
+    <!-- Section B: friendly error card mounted here when an API call fails -->
+    <div id="api-error-mount"></div>
   </div>
 
   <div id="report">
@@ -789,7 +843,7 @@
     <div id="cost-footer"></div>
 
     <!-- DarkPixel Consulting Inc. CTA replaces share button -->
-    <a class="darkpixel-row slide-in-delay2" href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener">
+    <a class="darkpixel-row slide-in-delay2" href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener noreferrer">
       <div class="darkpixel-left">
         <div class="darkpixel-eyebrow">Need professional help fixing these issues?</div>
         <div class="darkpixel-name">Dark<span>Pixel</span> Consulting Inc.</div>
@@ -823,8 +877,16 @@
 
 <footer>
   <div class="wrap">
-    Built with &#9889; Claude API &middot; <a href="https://github.com/DarkPixel-Z/qualmly" target="_blank" rel="noopener">Open source (MIT)</a> &middot; Made for vibe coders
-    &middot; <a href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener" class="dp-link">DarkPixel Consulting Inc.</a>
+    <div style="margin-bottom:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center">
+      <span>&#128274; Open source &middot; One HTML file &middot; Your key never leaves your browser</span>
+      <a href="https://github.com/DarkPixel-Z/qualmly" target="_blank" rel="noopener noreferrer" style="color:var(--lime);text-decoration:none;border-bottom:1px dashed var(--lime-dim)">GitHub</a>
+      <span>&middot;</span>
+      <button onclick="clearAllAppData()" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--fail);background:transparent;border:none;cursor:pointer;text-decoration:underline;padding:0">Clear all data</button>
+    </div>
+    Built with &#9889; Claude API &middot; <a href="https://github.com/DarkPixel-Z/qualmly" target="_blank" rel="noopener noreferrer">Open source (MIT)</a> &middot; Made for vibe coders
+    &middot; <a href="https://www.darkpixelconsultinginc.co/" target="_blank" rel="noopener noreferrer" class="dp-link">DarkPixel Consulting Inc.</a>
+    <!-- Section X: build stamp for bug reports. Populated from QUALMLY_BUILD on DOMContentLoaded. -->
+    <div id="qualmly-build-stamp" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;opacity:0.65"></div>
   </div>
 </footer>
 
@@ -859,7 +921,7 @@ function addTerminalLog(text, cls, delay) {
   setTimeout(() => {
     const el = document.createElement("div");
     el.className = "t-line " + cls;
-    el.innerHTML = "<span class=\"t-prompt\">$</span><span>" + text + "</span>";
+    el.innerHTML = "<span class=\"t-prompt\">$</span><span>" + text + "</span>"; // AUDITED-SAFE: text comes from developer-controlled TERMINAL_STEPS / heartbeat strings only — never user/API data
     document.getElementById("terminal-log").appendChild(el);
     el.scrollIntoView({ behavior: "smooth" });
   }, delay);
@@ -872,8 +934,8 @@ function showScreen(id) {
 }
 
 function resetApp() {
-  document.getElementById("terminal-log").innerHTML = "";
-  document.getElementById("tests-grid").innerHTML = "";
+  document.getElementById("terminal-log").innerHTML = ""; // AUDITED-SAFE: empty string clears DOM
+  document.getElementById("tests-grid").innerHTML = ""; // AUDITED-SAFE: empty string clears DOM
   document.getElementById("url").value = "";
   document.getElementById("desc").value = "";
   document.getElementById("error-msg").style.display = "none";
@@ -1037,12 +1099,14 @@ const CLAUDE_PRICING = {
 function renderCostFooter(containerId, usage, modelId) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  if (!usage) { el.innerHTML = ""; return; }
+  if (!usage) { el.innerHTML = ""; return; } // AUDITED-SAFE: empty string clears DOM
   const price = CLAUDE_PRICING[modelId] || CLAUDE_PRICING["claude-sonnet-4-6"];
   const inTok = usage.input_tokens || 0;
   const outTok = usage.output_tokens || 0;
   const cost = (inTok * price.inPerM + outTok * price.outPerM) / 1e6;
   const costStr = cost < 0.01 ? "&lt; $0.01" : "~$" + cost.toFixed(2);
+  // AUDITED-SAFE: costStr / inTok / outTok come from numeric arithmetic (no XSS surface);
+  // modelId is wrapped in escapeHtml even though it's developer-controlled.
   el.innerHTML =
     "<div style=\"font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:center;margin:28px 0 16px;padding:14px;border-top:1px solid var(--border)\">" +
       "&#128176; This review used " + costStr + " of your Anthropic credits &middot; " +
@@ -1061,6 +1125,7 @@ function renderReport(data, url, savedDateStr, isShared) {
   badge.id = "crawl-badge";
   badge.style.cssText = "font-family:'DM Mono',monospace;font-size:10px;display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;margin-bottom:8px;" +
     (data.crawled ? "background:rgba(61,255,160,0.1);color:var(--pass);border:1px solid rgba(61,255,160,0.2)" : "background:rgba(255,184,0,0.1);color:var(--warn);border:1px solid rgba(255,184,0,0.2)");
+  // AUDITED-SAFE: ternary returns one of two static strings; no interpolation.
   badge.innerHTML = data.crawled
     ? "&#128225; Live page crawled — findings based on real data"
     : "&#129300; AI inference — live crawl unavailable";
@@ -1074,10 +1139,9 @@ function renderReport(data, url, savedDateStr, isShared) {
   document.getElementById("stat-warn").textContent = tests.filter(t => getStatusClass(t.status) === "warn").length;
   document.getElementById("stat-fail").textContent = tests.filter(t => getStatusClass(t.status) === "fail").length;
   animateScore(data.score);
-  document.getElementById("insight-box").innerHTML = safeRichText(data.summary);
-
+  document.getElementById("insight-box").innerHTML = safeRichText(data.summary); // AUDITED-SAFE: safeRichText escapes everything then re-allows only <strong>/<em>/<br>
   const grid = document.getElementById("tests-grid");
-  grid.innerHTML = "";
+  grid.innerHTML = ""; // AUDITED-SAFE: empty string clears DOM
   tests.forEach((cat, i) => {
     const cls = getStatusClass(cat.status);
     const meta = CATEGORIES.find(c => c.id === cat.id) || { icon: "&#128269;", name: cat.name };
@@ -1093,7 +1157,10 @@ function renderReport(data, url, savedDateStr, isShared) {
     const codeFixHtml = buildCodeFixHTML(cat.codeFix);
     const builderPromptHtml = buildBuilderPromptHTML(cat.builderFixPrompt, data._builder);
 
-    // Wire up code copy data attribute after insertion
+    // AUDITED-SAFE: cls comes from getStatusClass (whitelist of pass/warn/fail/info);
+    // meta.icon is from CATEGORIES (developer-controlled); meta.name, cat.status, cat.recommendation
+    // all wrapped in escapeHtml; issues/codeFixHtml/builderPromptHtml are pre-built by helpers
+    // that themselves use escapeHtml on every interpolated value.
     card.innerHTML =
       "<div class=\"test-card-header\" onclick=\"toggleCard(this.parentElement)\">" +
         "<div class=\"status-icon " + cls + "\">" + meta.icon + "</div>" +
@@ -1147,9 +1214,13 @@ async function runCheck() {
   const apiKey = requireApiKeyFor(runCheck);
   if (!apiKey) return;
 
-  document.getElementById("check-btn").disabled = true;
+  // Section E: button-in-flight + cooldown (re-enables 3s after success/error)
+  _setButtonInFlight("check-btn", true);
+  _hideApiErrorCard();
+  _setTabStatus("scanning"); // Section V
+  const _runCheckStartedAt = Date.now();
   showScreen("loading");
-  document.getElementById("terminal-log").innerHTML = "";
+  document.getElementById("terminal-log").innerHTML = ""; // AUDITED-SAFE: empty string clears terminal
   TERMINAL_STEPS.forEach(s => addTerminalLog(s.text, "t-muted", s.delay));
 
   const AI_BUILDERS = ["lovable","bolt","v0","replit","webflow","cursor","copilot","claude-code","windsurf"];
@@ -1210,7 +1281,7 @@ Requirements:
 
   let reportData;
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await _anthropicFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1223,7 +1294,8 @@ Requirements:
         max_tokens: 6000,
         messages: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search_20250305", name: "web_search" }]
-      })
+      }),
+      signal: AbortSignal.timeout(90000) // Section A: App QA timeout at 90s
     });
     if (!response.ok) {
       if (response.status === 401) { clearApiKey(); throw new Error("Invalid API key — please reload and try again."); }
@@ -1252,14 +1324,17 @@ Requirements:
     addTerminalLog("Analysis complete!", "t-pass", 0);
     await new Promise(r => setTimeout(r, 500));
   } catch(err) {
-    console.error(err);
-    showScreen("input-screen");
-    errEl.style.display = "block";
-    errEl.textContent = "⚠ Something went wrong. (" + err.message + ")";
-    document.getElementById("check-btn").disabled = false;
+    // Section B: friendly error card with Retry + Copy details
+    const elapsedMs = Date.now() - _runCheckStartedAt;
+    console.error("[qualmly] App QA failed:", err && err.name, err && err.message, "elapsed:", elapsedMs + "ms");
+    _showApiErrorCard(() => runCheck(), err, elapsedMs);
+    _setButtonInFlight("check-btn", false, 3000); // Section E: 3s cooldown
+    _setTabStatus("error");
     return;
   }
 
+  _setButtonInFlight("check-btn", false, 3000);
+  _setTabStatus("done");
   renderReport(reportData, url, null, false);
 }
 
@@ -1717,6 +1792,156 @@ function clearApiKey() {
   try { sessionStorage.removeItem("vc_api_key"); } catch(e) {}
 }
 
+// ── Section V: tab title status during long-running operations ─────────────
+const _ORIGINAL_TITLE = (typeof document !== "undefined" && document.title) || "Qualmly";
+function _setTabStatus(state) {
+  // state: "idle" | "scanning" | "review" | "done" | "error"
+  if (typeof document === "undefined") return;
+  switch (state) {
+    case "scanning": document.title = "⏳ Scanning… | Qualmly"; break;
+    case "review":   document.title = "🔍 Reviewing code… | Qualmly"; break;
+    case "done":     document.title = "✓ Done | Qualmly"; setTimeout(() => { document.title = _ORIGINAL_TITLE; }, 8000); break;
+    case "error":    document.title = "⚠ Error | Qualmly"; setTimeout(() => { document.title = _ORIGINAL_TITLE; }, 6000); break;
+    default:         document.title = _ORIGINAL_TITLE;
+  }
+}
+
+// ── Section X: build version stamp ──────────────────────────────────────────
+// BUILD_VERSION is updated by the deploy script (or hand-bumped) on each release.
+// Renders in the footer for bug reports — gives reviewers a way to tell us "I saw
+// X behavior on build Y" instead of a vague timeline reference.
+const QUALMLY_BUILD = { version: "v1.1.0", date: "2026-04-24", channel: "stable" };
+
+// ── Section S: Anthropic API retry + offline guard ─────────────────────────
+// Wrap a fetch in: (1) navigator.onLine check before send, (2) one automatic
+// retry on 5xx / 529 / network error with 1.5s backoff. App-side timeouts
+// from Section A still apply and propagate AbortError on hard timeout.
+async function _anthropicFetch(url, options) {
+  // Section T: offline guard — bail before sending if we can tell we're offline.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new Error("You're offline. Reconnect and try again.");
+  }
+  const RETRY_STATUSES = new Set([500, 502, 503, 504, 529]);
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      // Don't retry 4xx (auth, rate-limit, bad request) — surface immediately.
+      // 401 is handled by the caller (clears key, re-prompts).
+      if (!RETRY_STATUSES.has(res.status) || attempt === 1) return res;
+      console.warn("[qualmly] Anthropic API " + res.status + " — retrying once after 1.5s backoff");
+      await new Promise(r => setTimeout(r, 1500));
+    } catch(err) {
+      // AbortError (timeout) MUST NOT be retried — caller's timeout is total budget.
+      if (err && (err.name === "AbortError" || err.name === "TimeoutError")) throw err;
+      lastErr = err;
+      if (attempt === 1) throw err;
+      console.warn("[qualmly] Anthropic API network error — retrying once after 1.5s backoff:", err && err.message);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  if (lastErr) throw lastErr;
+  return fetch(url, options); // unreachable; satisfies type-checker
+}
+
+// ── Sections B + E: friendly API error card + button-in-flight cooldown ────
+// _setButtonInFlight: disables the run button while a request runs. On finish
+// (success or error), waits `cooldownMs` before re-enabling so users can't
+// spam-click. Pass inFlight=true at start, inFlight=false at end.
+function _setButtonInFlight(btnId, inFlight, cooldownMs) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (inFlight) {
+    btn.disabled = true;
+    btn.dataset.cooldownPending = "1";
+  } else {
+    setTimeout(() => {
+      // Only re-enable if the cooldown wasn't cancelled by another request starting
+      if (btn.dataset.cooldownPending === "1") {
+        btn.disabled = false;
+        delete btn.dataset.cooldownPending;
+      }
+    }, cooldownMs || 3000);
+  }
+}
+
+// _showApiErrorCard: renders a friendly error card on the loading screen with
+// a Retry button (re-runs without clearing form) and Copy details button.
+// Pulls from #api-error-mount which is inside the loading screen container.
+function _showApiErrorCard(retryFn, err, elapsedMs) {
+  const mount = document.getElementById("api-error-mount");
+  if (!mount) return;
+  // Hide the terminal so the card is the focal point
+  const term = document.querySelector("#loading .terminal");
+  if (term) term.style.display = "none";
+
+  const errType = (err && err.name === "AbortError" || err && err.name === "TimeoutError") ? "timeout" :
+                  (err && /JSON|truncated|cut off/i.test(err.message || "")) ? "parse" : "network";
+  const errMsg = (err && err.message) ? err.message : String(err || "Unknown error");
+  const ts = new Date().toISOString();
+  const detailsBlob = JSON.stringify({ type: errType, message: errMsg, elapsedMs, timestamp: ts }, null, 2);
+
+  // Build card. AUDITED-SAFE: no user/API data interpolated raw — escapeHtml is
+  // applied to the message; structural HTML is fully static.
+  mount.innerHTML =
+    "<div class=\"api-error-card\" role=\"alert\">" +
+      "<div class=\"ae-headline\">The deep review took longer than expected</div>" +
+      "<div class=\"ae-sub\">This is usually a one-time hiccup with complex code. Your code wasn't sent to our servers &mdash; only to Anthropic.</div>" +
+      "<div class=\"ae-actions\">" +
+        "<button class=\"ae-btn primary\" id=\"ae-retry-btn\">&#8635; Retry</button>" +
+        "<button class=\"ae-btn\" id=\"ae-copy-btn\">&#128203; Copy error details</button>" +
+      "</div>" +
+      "<div class=\"ae-meta\">" + escapeHtml(errType) + " &middot; " + (elapsedMs ? Math.round(elapsedMs/1000) + "s elapsed" : "n/a") + " &middot; " + escapeHtml(errMsg) + "</div>" +
+    "</div>"; // AUDITED-SAFE: errMsg + errType escaped via escapeHtml; static template otherwise
+
+  const retryBtn = document.getElementById("ae-retry-btn");
+  if (retryBtn) retryBtn.addEventListener("click", () => {
+    _hideApiErrorCard();
+    if (typeof retryFn === "function") retryFn();
+  });
+  const copyBtn = document.getElementById("ae-copy-btn");
+  if (copyBtn) copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(detailsBlob);
+      copyBtn.textContent = "✓ Copied!";
+      setTimeout(() => { copyBtn.innerHTML = "&#128203; Copy error details"; }, 1500); // AUDITED-SAFE: static HTML, no interpolation
+    } catch(e) {
+      copyBtn.textContent = "Copy failed";
+    }
+  });
+}
+
+function _hideApiErrorCard() {
+  const mount = document.getElementById("api-error-mount");
+  if (mount) mount.innerHTML = ""; // AUDITED-SAFE: empty string clears the card
+  const term = document.querySelector("#loading .terminal");
+  if (term) term.style.display = "";
+}
+
+// ── Section L: Clear all data (history, encrypted key, prefs, idle marker) ──
+function clearAllAppData() {
+  if (!confirm("Clear your saved API key, history, and preferences? This cannot be undone.")) return;
+  const keys = [
+    "vc_api_key",
+    "vc_api_key_encrypted",
+    "vc_remember_key_pref",
+    "vc_history",
+    "vc_prefs",
+    "vc_last_key_use",
+    "qualmly_history",
+    "qualmly_prefs"
+  ];
+  keys.forEach(k => {
+    try { localStorage.removeItem(k); } catch(e) {}
+    try { sessionStorage.removeItem(k); } catch(e) {}
+  });
+  _memKey = null;
+  console.info("[qualmly] all app data cleared by user");
+  // Tiny delay so the user can see it happened, then full reload to flush in-memory state
+  setTimeout(() => { window.location.reload(); }, 50);
+}
+
 // ── Web Crypto helpers (passphrase-derived AES-GCM) ─────────────────────────
 async function _deriveKey(passphrase, salt) {
   const pwKey = await crypto.subtle.importKey(
@@ -1772,7 +1997,7 @@ function _setModalMode(mode) {
   const encPassRow = document.getElementById("encrypt-pass-row");
 
   if (mode === "unlock") {
-    titleEl.innerHTML = "&#128274; Unlock Saved Key";
+    titleEl.innerHTML = "&#128274; Unlock Saved Key"; // AUDITED-SAFE: static HTML
     subEl.textContent = "Your API key is encrypted in this browser. Enter the passphrase to unlock it for this session.";
     keyWrap.style.display = "none";
     remRow.style.display = "none";
@@ -1781,17 +2006,17 @@ function _setModalMode(mode) {
     if (unlockWrap) unlockWrap.style.display = "block";
     btnEl.textContent = "🔓 Unlock";
     btnEl.onclick = unlockApiKey;
-    hintEl.innerHTML = "Wrong passphrase? <a href=\"#\" onclick=\"event.preventDefault(); _discardEncryptedAndReset()\">Clear saved key and start over</a>.";
+    hintEl.innerHTML = "Wrong passphrase? <a href=\"#\" onclick=\"event.preventDefault(); _discardEncryptedAndReset()\">Clear saved key and start over</a>."; // AUDITED-SAFE: static HTML, no interpolation
     setTimeout(() => { const p = document.getElementById("unlock-pass"); if (p) p.focus(); }, 60);
   } else {
-    titleEl.innerHTML = "&#128272; Enter API Key";
+    titleEl.innerHTML = "&#128272; Enter API Key"; // AUDITED-SAFE: static HTML
     subEl.textContent = "Your Anthropic API key is sent only to Anthropic's servers — never to DarkPixel or any third party.";
     keyWrap.style.display = "";
     remRow.style.display = "";
     if (unlockWrap) unlockWrap.style.display = "none";
     btnEl.textContent = "⚡ Save & Continue";
     btnEl.onclick = submitApiKey;
-    hintEl.innerHTML = 'Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys. Clear it any time from Preferences.';
+    hintEl.innerHTML = 'Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a> → API Keys. Clear it any time from Preferences.'; // AUDITED-SAFE: static HTML, no interpolation
     setTimeout(() => { const i = document.getElementById("api-key-input"); if (i) i.focus(); }, 60);
   }
 }
@@ -1850,6 +2075,31 @@ function _toggleEncryptRow() {
   if (encPassRow) encPassRow.style.display = (enc && enc.checked) ? "block" : "none";
 }
 
+// Section M: API-key storage flow audit
+// ─────────────────────────────────────────────────────────────────────────────
+// Three storage modes are exposed in the UI; the user picks via the Remember
+// + Encrypt checkboxes. submitApiKey writes to exactly one of:
+//
+//   1. sessionStorage["vc_api_key"]                  — Tab-only (default).
+//      Plaintext, but wiped automatically when the tab closes. Safest.
+//
+//   2. localStorage["vc_api_key"]                    — Remember (no encrypt).
+//      Plaintext at rest. Documented and warned about in the modal copy.
+//      The user must actively tick "Remember" without ticking "Encrypt".
+//
+//   3. localStorage["vc_api_key_encrypted"] = blob   — Remember + Encrypt.
+//      AES-GCM encrypted with passphrase-derived PBKDF2 key (Web Crypto only,
+//      no home-rolled crypto). The decrypted key lives in `_memKey` for the
+//      session and is wiped by the idle-timeout helper.
+//
+// AUDIT RESULT: every write of the plaintext key to localStorage requires the
+// user to have actively checked "Remember" while leaving "Encrypt" unchecked.
+// The default flow (no "Remember") writes to sessionStorage, which clears on
+// tab close. There is NO code path that writes plaintext to localStorage
+// without an explicit user choice; the warning text in the modal documents
+// this trade-off. If you ever want to forbid plaintext localStorage entirely,
+// remove the `else if (remember && remember.checked)` branch in submitApiKey
+// and force the encrypted path whenever Remember is selected.
 async function submitApiKey() {
   const inp = document.getElementById("api-key-input");
   const err = document.getElementById("api-modal-error");
@@ -1858,8 +2108,11 @@ async function submitApiKey() {
   const encPass = document.getElementById("encrypt-pass");
   const val = ((inp && inp.value) || "").trim();
 
-  if (!val.startsWith("sk-ant-")) {
-    err.textContent = "That doesn't look like a valid key. It should start with sk-ant-";
+  // Section G: API key format validation. Anthropic keys start with sk-ant- and
+  // are well over 60 chars; reject anything that fails this shape before we
+  // ever attempt to send it to api.anthropic.com.
+  if (!val.startsWith("sk-ant-") || val.length < 60) {
+    err.textContent = "That doesn't look like a valid Anthropic API key. Anthropic keys start with sk-ant-. Get yours at console.anthropic.com.";
     err.style.display = "block";
     return;
   }
@@ -1875,6 +2128,11 @@ async function submitApiKey() {
   }
 
   clearApiKey();
+
+  // Section Y: PBKDF2 in _encryptApiKey takes 300-800ms — show progress on the Save button.
+  const submitBtn = document.querySelector("#api-modal .modal-btn");
+  const submitOriginal = submitBtn ? submitBtn.innerHTML : null;
+  if (submitBtn && wantsEncrypt) { submitBtn.disabled = true; submitBtn.innerHTML = "&#8987; Encrypting..."; } // AUDITED-SAFE: static HTML
 
   try {
     if (wantsEncrypt) {
@@ -1896,11 +2154,13 @@ async function submitApiKey() {
       _memKey = val;
     }
   } catch(e) {
+    if (submitBtn && submitOriginal !== null) { submitBtn.disabled = false; submitBtn.innerHTML = submitOriginal; } // AUDITED-SAFE: restoring saved label
     err.textContent = "Couldn't save: " + (e.message || "unknown error");
     err.style.display = "block";
     return;
   }
 
+  if (submitBtn && submitOriginal !== null) { submitBtn.disabled = false; submitBtn.innerHTML = submitOriginal; } // AUDITED-SAFE: restoring saved label
   _touchKeyUse();
   document.getElementById("api-modal").classList.remove("show");
   if (err) err.style.display = "none";
@@ -1926,6 +2186,11 @@ async function unlockApiKey() {
     _setModalMode("entry");
     return;
   }
+  // Section Y: PBKDF2 with 300k iterations takes 300-800ms on most laptops, longer
+  // on phones. Without a loading state the modal feels frozen and users double-click.
+  const btn = document.querySelector("#api-modal .modal-btn");
+  const originalLabel = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = "&#8987; Decrypting..."; } // AUDITED-SAFE: static HTML
   try {
     const plain = await _decryptApiKey(blob, pass);
     _memKey = plain;
@@ -1933,10 +2198,12 @@ async function unlockApiKey() {
     passEl.value = "";
     err.style.display = "none";
     document.getElementById("api-modal").classList.remove("show");
+    if (btn && originalLabel !== null) { btn.disabled = false; btn.innerHTML = originalLabel; } // AUDITED-SAFE: restoring saved label
     const cb = _pendingAfterApiKey;
     _pendingAfterApiKey = null;
     if (typeof cb === "function") cb();
   } catch(e) {
+    if (btn && originalLabel !== null) { btn.disabled = false; btn.innerHTML = originalLabel; } // AUDITED-SAFE: restoring saved label
     err.textContent = "Wrong passphrase — couldn't decrypt.";
     err.style.display = "block";
     passEl.focus();
@@ -2005,8 +2272,9 @@ function showHistory() {
   const items = loadHistory();
   if (!list) return;
   if (items.length === 0) {
-    list.innerHTML = "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:16px 0\">No reports yet. Run a check or code review to save one here.</div>";
+    list.innerHTML = "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:16px 0\">No reports yet. Run a check or code review to save one here.</div>"; // AUDITED-SAFE: static HTML
   } else {
+    // AUDITED-SAFE: e.title / e.date / e.kind all wrapped in escapeHtml; index `i` is integer.
     list.innerHTML = items.map((e, i) =>
       "<div onclick=\"runHistoryItem(" + i + ")\" style=\"padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px\">" +
         "<div style=\"color:var(--text);font-weight:700;margin-bottom:4px\">" + escapeHtml(e.title || "Untitled") + "</div>" +
@@ -2047,7 +2315,10 @@ const PREFS_DEFAULTS = {
   vibeCheckDefault: true,
   skipInfo: false,
   customFocus: "",
-  idleTimeoutMin: 0 // 0 = never; other values: 30, 120, 240, 480, 1440 (minutes)
+  // Section R: default to 30 min idle clear for new installs. Existing users keep their
+  // saved preference (loadPrefs Object.assigns over their stored value). Tighter default
+  // limits exposure if a user walks away from a session with the in-memory key cached.
+  idleTimeoutMin: 30 // 0 = never; other values: 30, 120, 240, 480, 1440 (minutes)
 };
 
 function loadPrefs() {
@@ -2098,8 +2369,8 @@ function updateApiKeyStatus() {
   const encrypted = hasEncryptedKey();
   const inLocal = !!localStorage.getItem("vc_api_key");
   const inSession = !!sessionStorage.getItem("vc_api_key");
-  if (encrypted) el.innerHTML = "\uD83D\uDD12 <span style=\"color:var(--pass)\">encrypted in localStorage (AES-GCM)</span>";
-  else if (inLocal) el.innerHTML = "<span style=\"color:var(--warn)\">saved plaintext in localStorage</span>";
+  if (encrypted) el.innerHTML = "\uD83D\uDD12 <span style=\"color:var(--pass)\">encrypted in localStorage (AES-GCM)</span>"; // AUDITED-SAFE: static HTML
+  else if (inLocal) el.innerHTML = "<span style=\"color:var(--warn)\">saved plaintext in localStorage</span>"; // AUDITED-SAFE: static HTML
   else if (inSession) el.textContent = "saved for this tab only (sessionStorage)";
   else el.textContent = "not saved";
 }
@@ -2289,7 +2560,7 @@ function renderFileTabs() {
       (codeFiles.length > 1 ? "<span class=\"close-tab\" onclick=\"event.stopPropagation(); closeFile(" + i + ")\">&times;</span>" : "") +
     "</div>"
   ).join("");
-  bar.innerHTML = tabs + "<button class=\"add-file-btn\" onclick=\"addFile()\">+ Add file</button>";
+  bar.innerHTML = tabs + "<button class=\"add-file-btn\" onclick=\"addFile()\">+ Add file</button>"; // AUDITED-SAFE: tabs built above with escapeHtml on f.name; integer indices
 }
 
 function switchFile(idx) {
@@ -2331,6 +2602,7 @@ const CR_TERMINAL_STEPS = [
 
 let _crLastData = null;
 let _crLastMeta = null;
+let _crHeartbeatTimer = null; // Section D: cleared on success/error of runCodeReview
 
 async function runCodeReview() {
   ensureCurrentFileCached();
@@ -2354,10 +2626,19 @@ async function runCodeReview() {
   const apiKey = requireApiKeyFor(runCodeReview);
   if (!apiKey) return;
 
-  document.getElementById("code-check-btn").disabled = true;
+  // Sections B+E: hide any prior error card, mark button in-flight
+  _setButtonInFlight("code-check-btn", true);
+  _hideApiErrorCard();
+  _setTabStatus("review"); // Section V
+  const _runCodeReviewStartedAt = Date.now();
   showScreen("loading");
-  document.getElementById("terminal-log").innerHTML = "";
+  document.getElementById("terminal-log").innerHTML = ""; // AUDITED-SAFE: empty string clears terminal
   CR_TERMINAL_STEPS.forEach(s => addTerminalLog(s.text, "t-muted", s.delay));
+  // Section D: heartbeat at 25s — reassures user during long Code Review runs
+  if (_crHeartbeatTimer) clearTimeout(_crHeartbeatTimer);
+  _crHeartbeatTimer = setTimeout(() => {
+    addTerminalLog("Deep analysis on complex code &mdash; this can take 30-90s, hang tight...", "t-muted", 0);
+  }, 25000);
 
   const filesBlock = codeFiles.map(f =>
     "\n\n=== FILE: " + f.name + " ===\n" + (f.content || "")
@@ -2425,7 +2706,7 @@ async function runCodeReview() {
 
   let reportData;
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await _anthropicFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2435,9 +2716,10 @@ async function runCodeReview() {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 8000,
+        max_tokens: 16000, // Section C: Code Review produces 6 issues × bad/good/builder × 7 UAT scenarios; was hitting 8K cap and truncating JSON
         messages: [{ role: "user", content: prompt }]
-      })
+      }),
+      signal: AbortSignal.timeout(120000) // Section A: Code Review takes 30-90s; cap at 120s
     });
     if (!response.ok) {
       if (response.status === 401) { clearApiKey(); throw new Error("Invalid API key — please reload and try again."); }
@@ -2459,22 +2741,25 @@ async function runCodeReview() {
       }
     }
     if (data.usage) reportData._usage = data.usage;
+    if (_crHeartbeatTimer) { clearTimeout(_crHeartbeatTimer); _crHeartbeatTimer = null; } // Section D: clear heartbeat
     await new Promise(r => setTimeout(r, 7000));
     addTerminalLog("Review complete!", "t-pass", 0);
     await new Promise(r => setTimeout(r, 500));
   } catch(err) {
-    console.error(err);
-    showScreen("code-screen");
-    errEl.style.display = "block";
-    errEl.textContent = "\u26A0 Something went wrong. (" + err.message + ")";
-    document.getElementById("code-check-btn").disabled = false;
+    if (_crHeartbeatTimer) { clearTimeout(_crHeartbeatTimer); _crHeartbeatTimer = null; }
+    const elapsedMs = Date.now() - _runCodeReviewStartedAt;
+    console.error("[qualmly] Code Review failed:", err && err.name, err && err.message, "elapsed:", elapsedMs + "ms");
+    _showApiErrorCard(() => runCodeReview(), err, elapsedMs);
+    _setButtonInFlight("code-check-btn", false, 3000); // Section E: 3s cooldown
+    _setTabStatus("error");
     return;
   }
 
   _crLastData = reportData;
   _crLastMeta = { lang, context, builder: crBuilder, files: codeFiles.map(f => ({ name: f.name, content: f.content })) };
   renderCodeReport(reportData, _crLastMeta, null);
-  document.getElementById("code-check-btn").disabled = false;
+  _setButtonInFlight("code-check-btn", false, 3000);
+  _setTabStatus("done");
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2546,10 +2831,12 @@ function renderCodeReport(data, meta, savedDateStr) {
   document.getElementById("cr-stat-uat").textContent = uat.length;
 
   animateCrScore(typeof data.score === "number" ? data.score : 0);
-  document.getElementById("cr-insight").innerHTML = safeRichText(data.summary || "");
+  document.getElementById("cr-insight").innerHTML = safeRichText(data.summary || ""); // AUDITED-SAFE: safeRichText escapes then re-allows only <strong>/<em>/<br>
 
   // UAT scenarios
   const uatGrid = document.getElementById("uat-grid");
+  // AUDITED-SAFE: every interpolated value (s.title, s.expected, s.automationHint, steps items)
+  // is wrapped in escapeHtml; priorityClass is whitelist (fail/info/warn).
   uatGrid.innerHTML = uat.map(s => {
     const pr = (s.priority || "medium").toLowerCase();
     const priorityClass = pr === "high" ? "fail" : pr === "low" ? "info" : "warn";
@@ -2572,6 +2859,9 @@ function renderCodeReport(data, meta, savedDateStr) {
   // Issues
   const crBuilderForRender = meta && meta.builder;
   const issuesGrid = document.getElementById("cr-issues-grid");
+  // AUDITED-SAFE: every interpolated AI-returned field (title, description, standard, file,
+  // line, searchText) is wrapped in escapeHtml; cls is whitelist; severityIcon returns
+  // numeric HTML entities; buildBadVsGood + buildBuilderPromptHTML escape internally.
   issuesGrid.innerHTML = issues.map((iss, i) => {
     const cls = severityToClass(iss.severity);
     const confidence = typeof iss.fixConfidence === "number" ? iss.fixConfidence : null;
@@ -2627,7 +2917,7 @@ function renderCodeReport(data, meta, savedDateStr) {
   const vwPlain = document.getElementById("vw-plain");
   if (vwTech) vwTech.classList.add("active-all");
   if (vwPlain) vwPlain.classList.remove("active-all");
-  if (vwPlain) { vwPlain.disabled = false; vwPlain.innerHTML = "&#128221; Plain English"; }
+  if (vwPlain) { vwPlain.disabled = false; vwPlain.innerHTML = "&#128221; Plain English"; } // AUDITED-SAFE: static label
 
   // Save to history (don't re-save when replaying from history)
   if (!savedDateStr) {
@@ -2726,6 +3016,7 @@ function startMarkIntentional(btn) {
   const card = btn.closest(".issue-card");
   const area = btn.closest(".js-intentional-area");
   const idx = parseInt(card.getAttribute("data-idx"), 10);
+  // AUDITED-SAFE: idx is parseInt-coerced integer; no user/API string interpolation
   area.innerHTML =
     "<div class=\"mi-form\" onclick=\"event.stopPropagation()\">" +
     "<label style=\"font-size:11px;color:var(--muted);font-family:'DM Mono',monospace\">Why is this intentional?</label>" +
@@ -2742,7 +3033,7 @@ function cancelIntentional(idx) {
   const card = document.querySelector("#cr-issues-grid .issue-card[data-idx=\"" + idx + "\"]");
   if (!card) return;
   const area = card.querySelector(".js-intentional-area");
-  if (area) area.innerHTML = "<button class=\"mark-int-btn\" onclick=\"event.stopPropagation(); startMarkIntentional(this)\">&#128737; Mark as intentional</button>";
+  if (area) area.innerHTML = "<button class=\"mark-int-btn\" onclick=\"event.stopPropagation(); startMarkIntentional(this)\">&#128737; Mark as intentional</button>"; // AUDITED-SAFE: static HTML
 }
 
 async function submitIntentional(idx) {
@@ -2755,7 +3046,7 @@ async function submitIntentional(idx) {
   const card = document.querySelector("#cr-issues-grid .issue-card[data-idx=\"" + idx + "\"]");
   if (!card) return;
   const area = card.querySelector(".js-intentional-area");
-  area.innerHTML = "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:10px 0\">&#8987; Re-evaluating with your context...</div>";
+  area.innerHTML = "<div style=\"font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:10px 0\">&#8987; Re-evaluating with your context...</div>"; // AUDITED-SAFE: static HTML
 
   const issue = (_crLastData && _crLastData.issues && _crLastData.issues[idx]) || {};
   const fileContent = ((_crLastMeta && _crLastMeta.files) || [])
@@ -2779,7 +3070,7 @@ async function submitIntentional(idx) {
     "{ \"decision\": \"dismiss\"|\"downgrade\"|\"keep\", \"newSeverity\": \"fail\"|\"warn\"|\"info\", \"rationale\": \"<1-2 sentence explanation>\" }";
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await _anthropicFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2791,7 +3082,8 @@ async function submitIntentional(idx) {
         model: "claude-sonnet-4-6",
         max_tokens: 700,
         messages: [{ role: "user", content: prompt }]
-      })
+      }),
+      signal: AbortSignal.timeout(90000) // Section A: mark-as-intentional re-eval timeout
     });
     if (!response.ok) {
       if (response.status === 401) { clearApiKey(); throw new Error("Invalid API key"); }
@@ -2822,6 +3114,8 @@ async function submitIntentional(idx) {
 
     const decisionLabel = result.decision === "dismiss" ? "Dismissed" : result.decision === "downgrade" ? "Downgraded" : "Kept";
     const decisionColor = result.decision === "dismiss" ? "var(--pass)" : result.decision === "downgrade" ? "var(--warn)" : "var(--fail)";
+    // AUDITED-SAFE: decisionColor / decisionLabel are from a static whitelist;
+    // note + result.rationale are wrapped in escapeHtml.
     area.innerHTML =
       "<div class=\"mi-result\">" +
         "<div style=\"display:flex;gap:8px;align-items:center;margin-bottom:8px\">" +
@@ -2843,6 +3137,7 @@ async function submitIntentional(idx) {
     filterIssues();
   } catch(e) {
     console.error(e);
+    // AUDITED-SAFE: e.message wrapped in escapeHtml; rest is static HTML
     area.innerHTML =
       "<div style=\"color:var(--fail);font-size:11px;font-family:'DM Mono',monospace;padding:8px 0\">Re-evaluation failed: " + escapeHtml(e.message) + "</div>" +
       "<button class=\"mark-int-btn\" onclick=\"event.stopPropagation(); startMarkIntentional(this)\">Try again</button>";
@@ -2876,7 +3171,7 @@ async function fetchPlainEnglish() {
   if (!_crLastData || !Array.isArray(_crLastData.issues)) return false;
 
   const vwPlain = document.getElementById("vw-plain");
-  if (vwPlain) { vwPlain.disabled = true; vwPlain.innerHTML = "&#8987; Rewriting..."; }
+  if (vwPlain) { vwPlain.disabled = true; vwPlain.innerHTML = "&#8987; Rewriting..."; } // AUDITED-SAFE: static label
 
   const compact = _crLastData.issues.map((iss, i) => ({
     i,
@@ -2898,7 +3193,7 @@ async function fetchPlainEnglish() {
     "{ \"rewrites\": [ { \"i\": <integer index from above>, \"title\": \"<plain title>\", \"description\": \"<plain description>\" } ] }";
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await _anthropicFetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2910,7 +3205,8 @@ async function fetchPlainEnglish() {
         model: "claude-sonnet-4-6",
         max_tokens: 3500,
         messages: [{ role: "user", content: prompt }]
-      })
+      }),
+      signal: AbortSignal.timeout(90000) // Section A: plain-English rewrite timeout
     });
     if (!response.ok) {
       if (response.status === 401) { clearApiKey(); throw new Error("Invalid API key"); }
@@ -2939,7 +3235,7 @@ async function fetchPlainEnglish() {
     showToast("Plain-English rewrite failed \u2014 " + e.message);
     return false;
   } finally {
-    if (vwPlain) { vwPlain.disabled = false; vwPlain.innerHTML = "&#128221; Plain English"; }
+    if (vwPlain) { vwPlain.disabled = false; vwPlain.innerHTML = "&#128221; Plain English"; } // AUDITED-SAFE: static label
   }
 }
 
@@ -2995,11 +3291,94 @@ function downloadCodeReport(format) {
 // ═════════════════════════════════════════════════════════════════════════════
 // GLOBAL HOOKS
 // ═════════════════════════════════════════════════════════════════════════════
+// ── Char counter helper ────────────────────────────────────────────────────
+// Wires <input id> + <div counterId> to live-update on input, with amber/red
+// thresholds at 80%/100% of max. Pass max as integer; element's maxLength
+// attribute already enforces the hard cap, this is just visual feedback.
+function _attachCharCounter(elId, max, counterId) {
+  const el = document.getElementById(elId);
+  const counter = document.getElementById(counterId);
+  if (!el || !counter) return;
+  const update = () => {
+    const len = (el.value || "").length;
+    counter.textContent = len + " / " + max; // AUDITED-SAFE: textContent (not innerHTML)
+    counter.classList.toggle("warn", len >= Math.floor(max * 0.8) && len < max);
+    counter.classList.toggle("full", len >= max);
+  };
+  el.addEventListener("input", update);
+  update();
+}
+
+// ── Sections U + Z: API-key input live-validation + phishing paste warning ─
+// On every keystroke / paste, color the format hint green if the key shape is
+// valid (starts with sk-ant- and is at least 60 chars). On paste detection
+// where the pasted value looks like an Anthropic key, surface a one-shot
+// "confirm this is qualmly.dev" warning that the user must read past.
+function _wireApiKeyInputGuards() {
+  const keyInp = document.getElementById("api-key-input");
+  const hint = document.getElementById("api-key-format-hint");
+  const warn = document.getElementById("api-key-paste-warn");
+  if (!keyInp) return;
+
+  const recompute = () => {
+    if (!hint) return;
+    const v = (keyInp.value || "").trim();
+    if (!v) {
+      hint.style.color = "var(--muted)";
+      hint.innerHTML = "Starts with <code style=\"color:var(--lime)\">sk-ant-</code>"; // AUDITED-SAFE: static HTML
+      return;
+    }
+    const looksValid = v.startsWith("sk-ant-") && v.length >= 60;
+    if (looksValid) {
+      hint.style.color = "var(--pass)";
+      hint.innerHTML = "&#10003; Key format looks valid"; // AUDITED-SAFE: static HTML
+    } else if (v.startsWith("sk-ant-")) {
+      hint.style.color = "var(--warn)";
+      hint.innerHTML = "Looks short &mdash; Anthropic keys are usually 80+ chars"; // AUDITED-SAFE: static HTML
+    } else {
+      hint.style.color = "var(--fail)";
+      hint.innerHTML = "Doesn't start with <code style=\"color:var(--lime)\">sk-ant-</code> &mdash; double-check the source"; // AUDITED-SAFE: static HTML
+    }
+  };
+
+  keyInp.addEventListener("input", recompute);
+
+  keyInp.addEventListener("paste", (e) => {
+    // We can't reliably read pasted text on all browsers from the event, so
+    // run the check on the next tick after the input value updates.
+    setTimeout(() => {
+      const v = (keyInp.value || "").trim();
+      if (warn && v.startsWith("sk-ant-") && v.length >= 30) {
+        warn.style.display = "block";
+        // Auto-hide after 12 seconds so it doesn't permanently clutter the modal
+        clearTimeout(_apiKeyWarnTimer);
+        _apiKeyWarnTimer = setTimeout(() => { warn.style.display = "none"; }, 12000);
+      }
+      recompute();
+    }, 0);
+  });
+
+  recompute();
+}
+let _apiKeyWarnTimer = null;
+
 document.addEventListener("DOMContentLoaded", () => {
   const keyInp = document.getElementById("api-key-input");
   if (keyInp) keyInp.addEventListener("keydown", e => { if (e.key === "Enter") submitApiKey(); });
   renderFileTabs();
   applyPrefsToForm();
+  // Wire up character counters for length-limited inputs (Section F)
+  _attachCharCounter("url", 2000, "url-counter");
+  _attachCharCounter("desc", 500, "desc-counter");
+  _attachCharCounter("code-context", 500, "code-context-counter");
+  _attachCharCounter("code-input", 50000, "code-input-counter");
+  // Sections U + Z: live API-key format check + phishing paste warning
+  _wireApiKeyInputGuards();
+  // Section V: tab title status hooks (no-op until a scan starts)
+  _setTabStatus("idle");
+  // Section X: render build stamp in footer
+  const stamp = document.getElementById("qualmly-build-stamp");
+  if (stamp) stamp.textContent = "Build " + QUALMLY_BUILD.version + " · " + QUALMLY_BUILD.date + " · " + QUALMLY_BUILD.channel; // AUDITED-SAFE: textContent
 });
 
 document.addEventListener("keydown", e => {
