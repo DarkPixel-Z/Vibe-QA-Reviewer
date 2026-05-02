@@ -1,0 +1,7 @@
+# Jekyll config for GitHub Pages.
+# By default Jekyll skips files/folders that start with a dot, which means
+# .well-known/ never makes it into the published site. RFC 9116 requires
+# security.txt to be served from /.well-known/security.txt — so we explicitly
+# include the folder here.
+include:
+  - .well-known
