@@ -214,11 +214,22 @@ qualmly/
 
 ---
 
+## 🔌 Companion projects
+
+| Project | Repo | Status |
+|---|---|---|
+| **GitHub Action** — Qualmly Code Review on every PR | [`DarkPixel-Z/qualmly-audit-action`](https://github.com/DarkPixel-Z/qualmly-audit-action) | ✅ v1.0.0 shipped |
+| **Chrome extension** — `Ctrl+Shift+Q` to audit current tab | [`extensions/chrome/`](./extensions/chrome) | 🟡 Working stub (needs icons + Web Store) |
+| **Mobile APK/IPA scanner** — secrets + endpoints in mobile builds | [`mobile-scanner/`](./mobile-scanner) | ✅ v1 Python CLI |
+| **Continuous monitoring** — scheduled rescans + email diffs | [`workers/monitoring/`](./workers/monitoring) | 🟡 Architectural scaffold |
+
 ## 🗺 Roadmap
 
+- [x] CI/CD webhook — trigger reviews on every push *(see GitHub Action above)*
+- [x] Mobile binary scanner *(see Mobile scanner above)*
+- [ ] Continuous monitoring with email diff *(scaffold ready)*
 - [ ] OG image generator for shareable report previews
 - [ ] GitHub Gist integration — save/load code files directly
-- [ ] CI/CD webhook — trigger reviews on every push
 - [ ] Team/agency white-label (remove DarkPixel CTA, swap in yours)
 
 ---
